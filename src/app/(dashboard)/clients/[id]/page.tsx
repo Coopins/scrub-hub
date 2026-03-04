@@ -239,8 +239,8 @@ export default function ClientDetailPage() {
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-2xl font-bold text-white">{client.first_name} {client.last_name}</h1>
             {statusBadge(client.status)}
-            {client.no_text_messages && <MessageSquareOff className="w-4 h-4 text-yellow-400" title="No text messages" />}
-            {client.deposit_required && <DollarSign className="w-4 h-4 text-yellow-400" title="Deposit required" />}
+            {client.no_text_messages && <span title="No text messages"><MessageSquareOff className="w-4 h-4 text-yellow-400" /></span>}
+            {client.deposit_required && <span title="Deposit required"><DollarSign className="w-4 h-4 text-yellow-400" /></span>}
           </div>
         </div>
         <Button onClick={() => setShowEditClient(true)} variant="outline"
