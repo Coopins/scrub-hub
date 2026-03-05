@@ -12,12 +12,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Phone, Mail, MapPin, Edit, Dog, AlertTriangle, MessageSquareOff, DollarSign, Trash2 } from 'lucide-react'
+import { ArrowLeft, Plus, Phone, Mail, MapPin, Edit, Dog, AlertTriangle, MessageSquareOff, DollarSign, Trash2, Calendar, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 
 const emptyPetForm = {
   name: '', species: 'dog', breed: '', age: '', weight: '',
   temperament_notes: '', medical_notes: '',
+}
+
+const BLANK_APPT_FORM = {
+  pet_id: '',
+  service_type: 'groom',
+  scheduled_datetime: '',
+  duration_minutes: 90,
+  price: '',
+  notes: '',
 }
 
 type PetFormData = typeof emptyPetForm
@@ -153,10 +162,15 @@ export default function ClientDetailPage() {
   const [showAddPet, setShowAddPet] = useState(false)
   const [showEditPet, setShowEditPet] = useState(false)
   const [showEditClient, setShowEditClient] = useState(false)
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false)
+  const [showNoPetsNotice, setShowNoPetsNotice] = useState(false)
   const [editingPet, setEditingPet] = useState<Pet | null>(null)
+  const [petJustAdded, setPetJustAdded] = useState<string | null>(null)
 
   const [petForm, setPetForm] = useState(emptyPetForm)
   const [editPetForm, setEditPetForm] = useState(emptyPetForm)
+  const [apptForm, setApptForm] = useState(BLANK_APPT_FORM)
+  const [savingAppt, setSavingAppt] = useState(false)
 
   const [editForm, setEditForm] = useState({
     first_name: '', last_name: '', phone: '', email: '', address: '',
@@ -209,9 +223,10 @@ export default function ClientDetailPage() {
   async function handleAddPet(e: React.FormEvent) {
     e.preventDefault()
     setSaving(true)
+    const savedName = petForm.name
     const { error } = await supabase.from('pets').insert({
       client_id: clientId,
-      name: petForm.name,
+      name: savedName,
       species: petForm.species,
       breed: petForm.breed || null,
       age: petForm.age ? parseInt(petForm.age) : null,
@@ -220,11 +235,44 @@ export default function ClientDetailPage() {
       medical_notes: petForm.medical_notes || null,
     })
     if (error) { toast.error(error.message); setSaving(false); return }
-    toast.success(`${petForm.name} added!`)
+    toast.success(`${savedName} added!`)
+    setPetJustAdded(savedName)
     setPetForm(emptyPetForm)
-    setShowAddPet(false)
     fetchAll()
     setSaving(false)
+  }
+
+  function handleScheduleClick() {
+    if (pets.length === 0) {
+      setShowNoPetsNotice(true)
+      return
+    }
+    const prefillPetId = pets.length === 1 ? pets[0].id : ''
+    setApptForm({ ...BLANK_APPT_FORM, pet_id: prefillPetId })
+    setShowScheduleDialog(true)
+  }
+
+  async function handleSaveAppt() {
+    if (!apptForm.pet_id || !apptForm.scheduled_datetime) return
+    setSavingAppt(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingAppt(false); return }
+    const { error } = await supabase.from('appointments').insert({
+      groomer_id: user.id,
+      client_id: clientId,
+      pet_id: apptForm.pet_id,
+      service_type: apptForm.service_type,
+      scheduled_datetime: new Date(apptForm.scheduled_datetime).toISOString(),
+      duration_minutes: apptForm.duration_minutes,
+      price: apptForm.price ? parseFloat(apptForm.price) : null,
+      notes: apptForm.notes,
+    })
+    if (error) { toast.error(error.message); setSavingAppt(false); return }
+    toast.success('Appointment scheduled!')
+    setShowScheduleDialog(false)
+    setApptForm(BLANK_APPT_FORM)
+    fetchAll()
+    setSavingAppt(false)
   }
 
   async function handleEditPet(e: React.FormEvent) {
@@ -419,8 +467,29 @@ export default function ClientDetailPage() {
 
           {/* Appointment History */}
           <Card className="bg-slate-900 border-slate-800">
-            <CardHeader><CardTitle className="text-white">Appointment History</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-white">Appointment History</CardTitle>
+              <Button size="sm" onClick={handleScheduleClick} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Calendar className="w-4 h-4 mr-1" /> Schedule
+              </Button>
+            </CardHeader>
             <CardContent>
+              {showNoPetsNotice && (
+                <div className="mb-4 p-3 rounded-lg bg-slate-800 border border-slate-700 flex items-start gap-3">
+                  <Dog className="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-slate-300 text-sm">Add a pet to this client before scheduling an appointment.</p>
+                    <Button
+                      size="sm"
+                      onClick={() => { setShowNoPetsNotice(false); setShowAddPet(true) }}
+                      className="mt-2 bg-emerald-600 hover:bg-emerald-700 text-white h-7 text-xs"
+                    >
+                      <Plus className="w-3 h-3 mr-1" /> Add Pet
+                    </Button>
+                  </div>
+                  <button onClick={() => setShowNoPetsNotice(false)} className="text-slate-500 hover:text-slate-300 text-lg leading-none flex-shrink-0">×</button>
+                </div>
+              )}
               {appointments.length === 0 ? (
                 <p className="text-slate-500 text-sm text-center py-4">No appointments yet</p>
               ) : (
@@ -453,17 +522,41 @@ export default function ClientDetailPage() {
       </div>
 
       {/* Add Pet Dialog */}
-      <Dialog open={showAddPet} onOpenChange={setShowAddPet}>
+      <Dialog open={showAddPet} onOpenChange={open => { if (!open) { setShowAddPet(false); setPetJustAdded(null); setPetForm(emptyPetForm) } }}>
         <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
           <DialogHeader><DialogTitle className="text-white">Add Pet</DialogTitle></DialogHeader>
-          <PetForm
-            form={petForm}
-            setForm={setPetForm}
-            onSubmit={handleAddPet}
-            onCancel={() => setShowAddPet(false)}
-            title="Add Pet"
-            saving={saving}
-          />
+          {petJustAdded ? (
+            <div className="space-y-4">
+              <div className="text-center py-4">
+                <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+                <p className="text-white font-medium">{petJustAdded} added!</p>
+                <p className="text-slate-400 text-sm mt-1">Pet saved successfully.</p>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => { setShowAddPet(false); setPetJustAdded(null) }}
+                  className="flex-1 bg-slate-700 hover:bg-slate-600 text-white"
+                >
+                  Done
+                </Button>
+                <Button
+                  onClick={() => setPetJustAdded(null)}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Add Another Pet
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <PetForm
+              form={petForm}
+              setForm={setPetForm}
+              onSubmit={handleAddPet}
+              onCancel={() => { setShowAddPet(false); setPetJustAdded(null) }}
+              title="Add Pet"
+              saving={saving}
+            />
+          )}
         </DialogContent>
       </Dialog>
 
@@ -479,6 +572,109 @@ export default function ClientDetailPage() {
             title="Save Changes"
             saving={saving}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Appointment Dialog */}
+      <Dialog open={showScheduleDialog} onOpenChange={open => { if (!open) { setShowScheduleDialog(false); setApptForm(BLANK_APPT_FORM) } }}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-white">Schedule Appointment</DialogTitle>
+            <p className="text-slate-400 text-sm">{client?.first_name} {client?.last_name}</p>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* Pet — locked if 1 pet, dropdown if 2+ */}
+            <div className="space-y-1">
+              <Label className="text-slate-300">Pet *</Label>
+              {pets.length === 1 ? (
+                <div className="bg-slate-800 border border-slate-600 rounded-md px-3 py-2 text-white text-sm">
+                  {pets[0].name} ({pets[0].breed ?? pets[0].species})
+                </div>
+              ) : (
+                <Select value={apptForm.pet_id} onValueChange={v => setApptForm({ ...apptForm, pet_id: v })}>
+                  <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                    <SelectValue placeholder="Select pet..." />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    {pets.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="text-white focus:bg-slate-700 focus:text-white">
+                        {p.name} ({p.breed ?? p.species})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Service *</Label>
+              <Select value={apptForm.service_type} onValueChange={v => setApptForm({ ...apptForm, service_type: v })}>
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="bath" className="text-white focus:bg-slate-700 focus:text-white">🔵 Bath</SelectItem>
+                  <SelectItem value="groom" className="text-white focus:bg-slate-700 focus:text-white">🟢 Groom</SelectItem>
+                  <SelectItem value="deluxe" className="text-white focus:bg-slate-700 focus:text-white">🟠 Deluxe</SelectItem>
+                  <SelectItem value="nail_trim" className="text-white focus:bg-slate-700 focus:text-white">🟣 Nail Trim</SelectItem>
+                  <SelectItem value="other" className="text-white focus:bg-slate-700 focus:text-white">⚪ Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Date & Time *</Label>
+              <Input
+                type="datetime-local"
+                value={apptForm.scheduled_datetime}
+                onChange={e => setApptForm({ ...apptForm, scheduled_datetime: e.target.value })}
+                className="bg-slate-800 border-slate-600 text-white"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-slate-300">Duration (min)</Label>
+                <Input
+                  type="number"
+                  value={apptForm.duration_minutes}
+                  onChange={e => setApptForm({ ...apptForm, duration_minutes: parseInt(e.target.value) })}
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-slate-300">Price ($)</Label>
+                <Input
+                  type="number"
+                  value={apptForm.price}
+                  onChange={e => setApptForm({ ...apptForm, price: e.target.value })}
+                  placeholder="0.00"
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Notes</Label>
+              <Textarea
+                value={apptForm.notes}
+                onChange={e => setApptForm({ ...apptForm, notes: e.target.value })}
+                className="bg-slate-800 border-slate-600 text-white resize-none"
+                rows={2}
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={() => { setShowScheduleDialog(false); setApptForm(BLANK_APPT_FORM) }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveAppt}
+                disabled={savingAppt || !apptForm.pet_id || !apptForm.scheduled_datetime}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {savingAppt ? 'Saving...' : 'Schedule'}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
