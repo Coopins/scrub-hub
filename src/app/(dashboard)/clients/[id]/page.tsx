@@ -125,8 +125,7 @@ function PetForm({
       <div className="flex gap-3 pt-2">
         <Button
           type="button"
-          variant="outline"
-          className="flex-1 border-slate-600 text-slate-300"
+          className="flex-1 bg-red-600 hover:bg-red-700 text-white"
           onClick={onCancel}
         >
           Cancel
@@ -312,8 +311,7 @@ export default function ClientDetailPage() {
         </div>
         <Button
           onClick={() => setShowEditClient(true)}
-          variant="outline"
-          className="border-slate-600 text-slate-300 hover:text-white hover:bg-slate-800"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white"
         >
           <Edit className="w-4 h-4 mr-2" /> Edit
         </Button>
@@ -578,8 +576,7 @@ export default function ClientDetailPage() {
             <div className="flex gap-3 pt-2">
               <Button
                 type="button"
-                variant="outline"
-                className="flex-1 border-slate-600 text-slate-300"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                 onClick={() => setShowEditClient(false)}
               >
                 Cancel

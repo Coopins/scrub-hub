@@ -12,14 +12,23 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Plus, Search, Phone, Mail, AlertTriangle, MessageSquareOff, DollarSign, ChevronRight } from 'lucide-react'
+import { Plus, Search, Phone, Mail, AlertTriangle, MessageSquareOff, DollarSign, ChevronRight, Dog } from 'lucide-react'
 import Link from 'next/link'
+
+const emptyPetForm = {
+  name: '', species: 'dog', breed: '', age: '', weight: '',
+  temperament_notes: '', medical_notes: '',
+}
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showAddPetDialog, setShowAddPetDialog] = useState(false)
+  const [newClientId, setNewClientId] = useState<string | null>(null)
+  const [petForm, setPetForm] = useState(emptyPetForm)
+  const [savingPet, setSavingPet] = useState(false)
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
@@ -60,10 +69,10 @@ export default function ClientsPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { error } = await supabase.from('clients').insert({
+    const { data: newClient, error } = await supabase.from('clients').insert({
       ...form,
       groomer_id: user.id,
-    })
+    }).select().single()
 
     if (error) {
       toast.error('Failed to save client')
@@ -80,6 +89,30 @@ export default function ClientsPage() {
     })
     fetchClients()
     setSaving(false)
+    setNewClientId(newClient.id)
+    setPetForm(emptyPetForm)
+    setShowAddPetDialog(true)
+  }
+
+  async function handleSavePet() {
+    if (!newClientId || !petForm.name) return
+    setSavingPet(true)
+    const { error } = await supabase.from('pets').insert({
+      client_id: newClientId,
+      name: petForm.name,
+      species: petForm.species,
+      breed: petForm.breed || null,
+      age: petForm.age ? parseInt(petForm.age) : null,
+      weight: petForm.weight ? parseFloat(petForm.weight) : null,
+      temperament_notes: petForm.temperament_notes || null,
+      medical_notes: petForm.medical_notes || null,
+    })
+    if (error) { toast.error(error.message); setSavingPet(false); return }
+    toast.success(`${petForm.name} added!`)
+    setShowAddPetDialog(false)
+    setNewClientId(null)
+    setPetForm(emptyPetForm)
+    setSavingPet(false)
   }
 
   const statusBadge = (status: Client['status']) => {
@@ -181,6 +214,115 @@ export default function ClientsPage() {
         </div>
       )}
 
+      {/* Add First Pet Dialog (opens after client is saved) */}
+      <Dialog open={showAddPetDialog} onOpenChange={open => { if (!open) { setShowAddPetDialog(false); setNewClientId(null); setPetForm(emptyPetForm) } }}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Dog className="w-5 h-5 text-emerald-400" />
+              Add First Pet
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400 text-sm -mt-2">Add a pet for this client to start scheduling appointments.</p>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-slate-300">Name *</Label>
+                <Input
+                  value={petForm.name}
+                  onChange={e => setPetForm({ ...petForm, name: e.target.value })}
+                  placeholder="Buddy"
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-slate-300">Species</Label>
+                <Select value={petForm.species} onValueChange={v => setPetForm({ ...petForm, species: v })}>
+                  <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    <SelectItem value="dog" className="text-white focus:bg-slate-700 focus:text-white">🐕 Dog</SelectItem>
+                    <SelectItem value="cat" className="text-white focus:bg-slate-700 focus:text-white">🐈 Cat</SelectItem>
+                    <SelectItem value="other" className="text-white focus:bg-slate-700 focus:text-white">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Breed</Label>
+              <Input
+                value={petForm.breed}
+                onChange={e => setPetForm({ ...petForm, breed: e.target.value })}
+                placeholder="Golden Retriever"
+                className="bg-slate-800 border-slate-600 text-white"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-slate-300">Age (years)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="30"
+                  value={petForm.age}
+                  onChange={e => setPetForm({ ...petForm, age: e.target.value })}
+                  placeholder="3"
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-slate-300">Weight (lbs)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="300"
+                  value={petForm.weight}
+                  onChange={e => setPetForm({ ...petForm, weight: e.target.value })}
+                  placeholder="45"
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Temperament Notes</Label>
+              <Textarea
+                value={petForm.temperament_notes}
+                onChange={e => setPetForm({ ...petForm, temperament_notes: e.target.value })}
+                placeholder="Dog aggressive, anxious, loves treats..."
+                className="bg-slate-800 border-slate-600 text-white resize-none"
+                rows={2}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Medical Notes</Label>
+              <Textarea
+                value={petForm.medical_notes}
+                onChange={e => setPetForm({ ...petForm, medical_notes: e.target.value })}
+                placeholder="Arthritis in hips, heart murmur..."
+                className="bg-slate-800 border-slate-600 text-white resize-none"
+                rows={2}
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={() => { setShowAddPetDialog(false); setNewClientId(null); setPetForm(emptyPetForm) }}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300"
+              >
+                Skip for now
+              </Button>
+              <Button
+                onClick={handleSavePet}
+                disabled={savingPet || !petForm.name}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {savingPet ? 'Saving...' : 'Add Pet'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Client Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
@@ -270,9 +412,8 @@ export default function ClientsPage() {
             </div>
             <div className="flex gap-3 pt-2">
               <Button
-                variant="outline"
                 onClick={() => setShowAddDialog(false)}
-                className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-800"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
               >
                 Cancel
               </Button>

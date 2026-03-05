@@ -662,8 +662,22 @@ export default function CalendarPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label className="text-slate-300">Client *</Label>
+              <Label className="text-slate-300">Client *</Label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <Select value={form.client_id} onValueChange={handleClientChange}>
+                    <SelectTrigger className="bg-slate-800 border-slate-600 text-white w-full">
+                      <SelectValue placeholder="Select client..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      {clients.map(c => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.first_name} {c.last_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 {!editingAppointmentId && (
                   <button
                     type="button"
@@ -671,24 +685,17 @@ export default function CalendarPage() {
                       setShowNewClientForm(v => !v)
                       setNewClientForm(BLANK_NEW_CLIENT)
                     }}
-                    className="flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-slate-600 text-slate-400 hover:text-emerald-400 hover:border-emerald-600 transition-colors"
+                    className={cn(
+                      'flex items-center gap-1 text-xs px-3 py-2 rounded-md border whitespace-nowrap transition-colors flex-shrink-0',
+                      showNewClientForm
+                        ? 'border-red-600 bg-red-600 text-white hover:bg-red-700'
+                        : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
+                    )}
                   >
-                    {showNewClientForm ? <><X className="w-3 h-3" /> Cancel</> : <><Plus className="w-3 h-3" /> New</>}
+                    {showNewClientForm ? <><X className="w-3 h-3" /> Cancel</> : <><Plus className="w-3 h-3" /> Add Client</>}
                   </button>
                 )}
               </div>
-              <Select value={form.client_id} onValueChange={handleClientChange}>
-                <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
-                  <SelectValue placeholder="Select client..." />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-600">
-                  {clients.map(c => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.first_name} {c.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
 
             {/* Inline new client mini-form */}
@@ -739,7 +746,7 @@ export default function CalendarPage() {
                   <Button
                     type="button"
                     onClick={() => { setShowNewClientForm(false); setNewClientForm(BLANK_NEW_CLIENT) }}
-                    className="flex-1 h-8 text-sm bg-transparent border border-slate-600 text-slate-300 hover:bg-slate-700"
+                    className="flex-1 h-8 text-sm bg-red-600 hover:bg-red-700 text-white"
                   >
                     Cancel
                   </Button>
