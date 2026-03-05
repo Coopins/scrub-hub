@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Plus, AlertTriangle, CheckCircle } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, AlertTriangle, CheckCircle, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -67,6 +67,8 @@ const BLANK_FORM = {
   notes: '',
 }
 
+const BLANK_NEW_CLIENT = { first_name: '', last_name: '', phone: '', email: '' }
+
 export default function CalendarPage() {
   const [view, setView] = useState<CalendarView>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
@@ -84,6 +86,9 @@ export default function CalendarPage() {
   const [completeNotes, setCompleteNotes] = useState('')
   const [completing, setCompleting] = useState(false)
   const [form, setForm] = useState(BLANK_FORM)
+  const [showNewClientForm, setShowNewClientForm] = useState(false)
+  const [newClientForm, setNewClientForm] = useState(BLANK_NEW_CLIENT)
+  const [savingClient, setSavingClient] = useState(false)
 
   const supabase = createClient()
 
@@ -184,6 +189,44 @@ export default function CalendarPage() {
     setEditingAppointmentId(null)
     setForm(BLANK_FORM)
     setClientPets([])
+    setShowNewClientForm(false)
+    setNewClientForm(BLANK_NEW_CLIENT)
+  }
+
+  async function handleSaveNewClient() {
+    if (!newClientForm.first_name || !newClientForm.last_name || !newClientForm.phone) return
+    setSavingClient(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingClient(false); return }
+
+    const { data: newClient, error } = await supabase
+      .from('clients')
+      .insert({
+        groomer_id: user.id,
+        first_name: newClientForm.first_name,
+        last_name: newClientForm.last_name,
+        phone: newClientForm.phone,
+        email: newClientForm.email || null,
+        status: 'active',
+        no_text_messages: false,
+        deposit_required: false,
+      })
+      .select()
+      .single()
+
+    if (error) {
+      toast.error('Failed to create client')
+      setSavingClient(false)
+      return
+    }
+
+    // Add to the local list (sorted), auto-select, collapse the mini-form
+    setClients(prev => [...prev, newClient].sort((a, b) => a.last_name.localeCompare(b.last_name)))
+    handleClientChange(newClient.id)
+    setShowNewClientForm(false)
+    setNewClientForm(BLANK_NEW_CLIENT)
+    toast.success(`${newClient.first_name} ${newClient.last_name} added!`)
+    setSavingClient(false)
   }
 
   async function handleSave() {
@@ -619,7 +662,21 @@ export default function CalendarPage() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1">
-              <Label className="text-slate-300">Client *</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-slate-300">Client *</Label>
+                {!editingAppointmentId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewClientForm(v => !v)
+                      setNewClientForm(BLANK_NEW_CLIENT)
+                    }}
+                    className="flex items-center gap-1 text-xs px-2 py-0.5 rounded border border-slate-600 text-slate-400 hover:text-emerald-400 hover:border-emerald-600 transition-colors"
+                  >
+                    {showNewClientForm ? <><X className="w-3 h-3" /> Cancel</> : <><Plus className="w-3 h-3" /> New</>}
+                  </button>
+                )}
+              </div>
               <Select value={form.client_id} onValueChange={handleClientChange}>
                 <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
                   <SelectValue placeholder="Select client..." />
@@ -633,6 +690,70 @@ export default function CalendarPage() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Inline new client mini-form */}
+            {showNewClientForm && !editingAppointmentId && (
+              <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 space-y-3">
+                <p className="text-xs font-medium text-slate-400">New Client</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-slate-400 text-xs">First Name *</Label>
+                    <Input
+                      value={newClientForm.first_name}
+                      onChange={e => setNewClientForm({ ...newClientForm, first_name: e.target.value })}
+                      placeholder="First"
+                      className="bg-slate-800 border-slate-600 text-white h-8 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-slate-400 text-xs">Last Name *</Label>
+                    <Input
+                      value={newClientForm.last_name}
+                      onChange={e => setNewClientForm({ ...newClientForm, last_name: e.target.value })}
+                      placeholder="Last"
+                      className="bg-slate-800 border-slate-600 text-white h-8 text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-slate-400 text-xs">Phone *</Label>
+                  <Input
+                    type="tel"
+                    value={newClientForm.phone}
+                    onChange={e => setNewClientForm({ ...newClientForm, phone: e.target.value })}
+                    placeholder="(555) 555-5555"
+                    className="bg-slate-800 border-slate-600 text-white h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-slate-400 text-xs">Email</Label>
+                  <Input
+                    type="email"
+                    value={newClientForm.email}
+                    onChange={e => setNewClientForm({ ...newClientForm, email: e.target.value })}
+                    placeholder="Optional"
+                    className="bg-slate-800 border-slate-600 text-white h-8 text-sm"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    type="button"
+                    onClick={() => { setShowNewClientForm(false); setNewClientForm(BLANK_NEW_CLIENT) }}
+                    className="flex-1 h-8 text-sm bg-transparent border border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveNewClient}
+                    disabled={savingClient || !newClientForm.first_name || !newClientForm.last_name || !newClientForm.phone}
+                    className="flex-1 h-8 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    {savingClient ? 'Saving...' : 'Save Client'}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {form.client_id && (
               <div className="space-y-1">
