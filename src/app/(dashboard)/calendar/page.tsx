@@ -15,21 +15,46 @@ import { ChevronLeft, ChevronRight, Plus, AlertTriangle, CheckCircle } from 'luc
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
+// Service colors are stored in a single map so they can be replaced with values
+// fetched from groomer_profiles (e.g. a `service_colors` JSONB column) to support
+// user customization in a future update — no other code changes would be required.
 const SERVICE_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
-  bath: { bg: 'bg-blue-500/20 border-blue-500/40', text: 'text-blue-300', dot: 'bg-blue-500' },
-  groom: { bg: 'bg-emerald-500/20 border-emerald-500/40', text: 'text-emerald-300', dot: 'bg-emerald-500' },
-  deluxe: { bg: 'bg-orange-500/20 border-orange-500/40', text: 'text-orange-300', dot: 'bg-orange-500' },
-  nail_trim: { bg: 'bg-purple-500/20 border-purple-500/40', text: 'text-purple-300', dot: 'bg-purple-500' },
-  other: { bg: 'bg-slate-500/20 border-slate-500/40', text: 'text-slate-300', dot: 'bg-slate-500' },
+  bath:      { bg: 'bg-blue-500/20 border-blue-500/40',      text: 'text-blue-300',    dot: 'bg-blue-500'    },
+  groom:     { bg: 'bg-emerald-500/20 border-emerald-500/40', text: 'text-emerald-300', dot: 'bg-emerald-500' },
+  deluxe:    { bg: 'bg-orange-500/20 border-orange-500/40',   text: 'text-orange-300',  dot: 'bg-orange-500'  },
+  nail_trim: { bg: 'bg-purple-500/20 border-purple-500/40',   text: 'text-purple-300',  dot: 'bg-purple-500'  },
+  other:     { bg: 'bg-slate-500/20 border-slate-500/40',     text: 'text-slate-300',   dot: 'bg-slate-500'   },
 }
 
 const CANCELLED_COLORS = { bg: 'bg-slate-700/30 border-slate-600/30', text: 'text-slate-600' }
-const COMPLETED_COLORS = { bg: 'bg-slate-600/20 border-slate-500/30', text: 'text-slate-500' }
+const COMPLETED_COLORS  = { bg: 'bg-slate-600/20 border-slate-500/30', text: 'text-slate-500' }
 
+type CalendarView = 'month' | 'week' | 'day'
+
+// Convert a UTC ISO string to the value format expected by <input type="datetime-local">
 function toDatetimeLocal(iso: string): string {
   const dt = new Date(iso)
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`
+}
+
+function getWeekDays(date: Date): Date[] {
+  const start = new Date(date)
+  start.setDate(date.getDate() - date.getDay())
+  start.setHours(0, 0, 0, 0)
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start)
+    d.setDate(start.getDate() + i)
+    return d
+  })
+}
+
+function isSameDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth()    === b.getMonth()    &&
+    a.getDate()     === b.getDate()
+  )
 }
 
 const BLANK_FORM = {
@@ -43,6 +68,7 @@ const BLANK_FORM = {
 }
 
 export default function CalendarPage() {
+  const [view, setView] = useState<CalendarView>('month')
   const [currentDate, setCurrentDate] = useState(new Date())
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [clients, setClients] = useState<Client[]>([])
@@ -52,32 +78,33 @@ export default function CalendarPage() {
   const [popupWarnings, setPopupWarnings] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [editingAppointmentId, setEditingAppointmentId] = useState<string | null>(null)
-
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null)
   const [cancelling, setCancelling] = useState(false)
-
   const [showCompletePrompt, setShowCompletePrompt] = useState(false)
   const [completeNotes, setCompleteNotes] = useState('')
   const [completing, setCompleting] = useState(false)
+  const [form, setForm] = useState(BLANK_FORM)
 
   const supabase = createClient()
 
-  const [form, setForm] = useState(BLANK_FORM)
+  const year = currentDate.getFullYear()
+  const month = currentDate.getMonth()
 
   async function fetchData() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
-    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0)
+    // Fetch prev month through next month so all views (including edge-of-month weeks) are covered
+    const startRange = new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1)
+    const endRange   = new Date(currentDate.getFullYear(), currentDate.getMonth() + 2, 0)
 
     const [apptRes, clientRes] = await Promise.all([
       supabase
         .from('appointments')
         .select('*, client:clients(*), pet:pets(*)')
         .eq('groomer_id', user.id)
-        .gte('scheduled_datetime', startOfMonth.toISOString())
-        .lte('scheduled_datetime', endOfMonth.toISOString()),
+        .gte('scheduled_datetime', startRange.toISOString())
+        .lte('scheduled_datetime', endRange.toISOString()),
       supabase
         .from('clients')
         .select('*')
@@ -99,7 +126,6 @@ export default function CalendarPage() {
   function checkWarnings(clientId: string): string[] {
     const client = clients.find(c => c.id === clientId)
     if (!client) return []
-
     const warnings: string[] = []
     if (client.status === 'do_not_book') warnings.push('⛔ DO NOT BOOK — Check notes before scheduling')
     if (client.deposit_required) warnings.push('💰 DEPOSIT REQUIRED before confirming appointment')
@@ -124,7 +150,14 @@ export default function CalendarPage() {
   }
 
   function openAddDialog(prefillDate?: string) {
-    setForm({ ...BLANK_FORM, scheduled_datetime: prefillDate ?? '' })
+    let dateToUse = prefillDate ?? ''
+    // In day view, pre-fill the current day at 9 AM
+    if (!prefillDate && view === 'day') {
+      const d = currentDate
+      const pad = (n: number) => String(n).padStart(2, '0')
+      dateToUse = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T09:00`
+    }
+    setForm({ ...BLANK_FORM, scheduled_datetime: dateToUse })
     setClientPets([])
     setEditingAppointmentId(null)
     setShowAddDialog(true)
@@ -163,7 +196,10 @@ export default function CalendarPage() {
       client_id: form.client_id,
       pet_id: form.pet_id,
       service_type: form.service_type,
-      scheduled_datetime: form.scheduled_datetime,
+      // Convert the local datetime-local string to UTC ISO before storing.
+      // Without this, the browser-local time gets interpreted as UTC in PostgreSQL,
+      // causing the appointment to appear shifted by the user's UTC offset.
+      scheduled_datetime: new Date(form.scheduled_datetime).toISOString(),
       duration_minutes: form.duration_minutes,
       price: form.price ? parseFloat(form.price) : null,
       notes: form.notes,
@@ -229,28 +265,82 @@ export default function CalendarPage() {
     setCompleting(false)
   }
 
-  // Calendar helpers
-  const year = currentDate.getFullYear()
-  const month = currentDate.getMonth()
-  const firstDay = new Date(year, month, 1).getDay()
-  const daysInMonth = new Date(year, month + 1, 0).getDate()
-  const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  // ---- Navigation ----
+  function navigatePrev() {
+    if (view === 'month') {
+      setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() - 1, 1))
+    } else if (view === 'week') {
+      setCurrentDate(d => { const n = new Date(d); n.setDate(n.getDate() - 7); return n })
+    } else {
+      setCurrentDate(d => { const n = new Date(d); n.setDate(n.getDate() - 1); return n })
+    }
+  }
 
-  function getApptsForDay(day: number) {
+  function navigateNext() {
+    if (view === 'month') {
+      setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + 1, 1))
+    } else if (view === 'week') {
+      setCurrentDate(d => { const n = new Date(d); n.setDate(n.getDate() + 7); return n })
+    } else {
+      setCurrentDate(d => { const n = new Date(d); n.setDate(n.getDate() + 1); return n })
+    }
+  }
+
+  function isViewingToday(): boolean {
+    const today = new Date()
+    if (view === 'month') return today.getFullYear() === year && today.getMonth() === month
+    if (view === 'day')   return isSameDay(currentDate, today)
+    return getWeekDays(currentDate).some(d => isSameDay(d, today))
+  }
+
+  function getPeriodLabel(): string {
+    if (view === 'month') {
+      return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    }
+    if (view === 'day') {
+      return currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+    }
+    const days = getWeekDays(currentDate)
+    const start = days[0], end = days[6]
+    if (start.getMonth() === end.getMonth()) {
+      return `${start.toLocaleDateString('en-US', { month: 'long' })} ${start.getDate()}–${end.getDate()}, ${start.getFullYear()}`
+    }
+    return `${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+  }
+
+  // ---- Calendar helpers ----
+  const firstDay    = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const weekDays    = getWeekDays(currentDate)
+
+  function getApptsForDay(day: number): Appointment[] {
     return appointments.filter(a => {
       const d = new Date(a.scheduled_datetime)
       return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day
     })
   }
 
-  const isToday = (day: number) => {
+  function getApptsForDate(date: Date): Appointment[] {
+    return appointments
+      .filter(a => isSameDay(new Date(a.scheduled_datetime), date))
+      .sort((a, b) => new Date(a.scheduled_datetime).getTime() - new Date(b.scheduled_datetime).getTime())
+  }
+
+  function isToday(day: number): boolean {
     const t = new Date()
     return t.getFullYear() === year && t.getMonth() === month && t.getDate() === day
   }
 
-  const isCurrentMonth = () => {
-    const t = new Date()
-    return t.getFullYear() === year && t.getMonth() === month
+  function getApptDotColor(appt: Appointment): string {
+    if (appt.status === 'cancelled') return 'bg-slate-700'
+    if (appt.status === 'completed') return 'bg-slate-500'
+    return SERVICE_COLORS[appt.service_type]?.dot ?? SERVICE_COLORS.other.dot
+  }
+
+  // In month view, clicking a day navigates to day view instead of opening the New Appointment dialog
+  function handleMonthDayClick(day: number) {
+    setCurrentDate(new Date(year, month, day))
+    setView('day')
   }
 
   return (
@@ -286,20 +376,21 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* Calendar */}
+      {/* Calendar card */}
       <Card className="bg-slate-900 border-slate-800">
+        {/* Nav header */}
         <CardHeader className="flex flex-row items-center justify-between pb-4">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setCurrentDate(new Date(year, month - 1, 1))}
+            onClick={navigatePrev}
             className="text-slate-400 hover:text-white"
           >
             <ChevronLeft className="w-4 h-4" />
           </Button>
           <div className="flex items-center gap-3">
-            <CardTitle className="text-white">{monthName}</CardTitle>
-            {!isCurrentMonth() && (
+            <CardTitle className="text-white text-sm sm:text-base">{getPeriodLabel()}</CardTitle>
+            {!isViewingToday() && (
               <Button
                 variant="ghost"
                 onClick={() => setCurrentDate(new Date())}
@@ -312,79 +403,209 @@ export default function CalendarPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setCurrentDate(new Date(year, month + 1, 1))}
+            onClick={navigateNext}
             className="text-slate-400 hover:text-white"
           >
             <ChevronRight className="w-4 h-4" />
           </Button>
         </CardHeader>
-        <CardContent>
-          {/* Day headers */}
-          <div className="grid grid-cols-7 mb-2">
-            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
-              <div key={d} className="text-center text-slate-500 text-xs font-medium py-2">{d}</div>
-            ))}
-          </div>
 
-          {/* Calendar grid */}
-          <div className="grid grid-cols-7 gap-px bg-slate-800 rounded-lg overflow-hidden">
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} className="bg-slate-900 min-h-[80px] p-1" />
-            ))}
+        {/* View switcher */}
+        <div className="px-6 pb-4 flex gap-1 border-b border-slate-800">
+          {(['month', 'week', 'day'] as CalendarView[]).map(v => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                'px-3 py-1 text-sm rounded transition-colors capitalize',
+                view === v
+                  ? 'bg-slate-700 text-white'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              )}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
 
-            {Array.from({ length: daysInMonth }).map((_, i) => {
-              const day = i + 1
-              const dayAppts = getApptsForDay(day)
-              const pad = (n: number) => String(n).padStart(2, '0')
-              const dateStr = `${year}-${pad(month + 1)}-${pad(day)}T09:00`
+        <CardContent className="pt-4">
 
-              return (
-                <div
-                  key={day}
-                  onClick={() => openAddDialog(dateStr)}
-                  className="bg-slate-900 min-h-[80px] p-1 hover:bg-slate-800/50 transition-colors cursor-pointer"
-                >
-                  <div className={cn(
-                    "text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1",
-                    isToday(day) ? "bg-emerald-600 text-white" : "text-slate-400"
-                  )}>
-                    {day}
-                  </div>
-                  <div className="space-y-0.5">
-                    {dayAppts.slice(0, 3).map(appt => {
-                      const isCompleted = appt.status === 'completed'
-                      const isCancelled = appt.status === 'cancelled'
-                      const colors = isCancelled
-                        ? CANCELLED_COLORS
-                        : isCompleted
-                        ? COMPLETED_COLORS
-                        : SERVICE_COLORS[appt.service_type] ?? SERVICE_COLORS.other
+          {/* ---- MONTH VIEW: colored dots per appointment ---- */}
+          {view === 'month' && (
+            <>
+              <div className="grid grid-cols-7 mb-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (
+                  <div key={d} className="text-center text-slate-500 text-xs font-medium py-2">{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-px bg-slate-800 rounded-lg overflow-hidden">
+                {Array.from({ length: firstDay }).map((_, i) => (
+                  <div key={`empty-${i}`} className="bg-slate-900 min-h-[80px] p-1" />
+                ))}
+                {Array.from({ length: daysInMonth }).map((_, i) => {
+                  const day = i + 1
+                  const dayAppts = getApptsForDay(day)
+                  return (
+                    <div
+                      key={day}
+                      onClick={() => handleMonthDayClick(day)}
+                      className="bg-slate-900 min-h-[80px] p-1 hover:bg-slate-800/50 transition-colors cursor-pointer"
+                    >
+                      <div className={cn(
+                        'text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1',
+                        isToday(day) ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                      )}>
+                        {day}
+                      </div>
+                      {/* One dot per appointment, colored by service type */}
+                      <div className="flex flex-wrap gap-0.5">
+                        {dayAppts.slice(0, 14).map(appt => (
+                          <div
+                            key={appt.id}
+                            onClick={e => { e.stopPropagation(); setSelectedAppointment(appt) }}
+                            title={`${new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${appt.pet?.name} · ${appt.service_type.replace('_', ' ')}`}
+                            className={cn(
+                              'w-2 h-2 rounded-full cursor-pointer hover:scale-125 transition-transform flex-shrink-0',
+                              getApptDotColor(appt)
+                            )}
+                          />
+                        ))}
+                        {dayAppts.length > 14 && (
+                          <span className="text-slate-500 text-xs leading-none self-center">+{dayAppts.length - 14}</span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
 
-                      return (
-                        <div
-                          key={appt.id}
-                          title={appt.notes ?? undefined}
-                          onClick={e => { e.stopPropagation(); setSelectedAppointment(appt) }}
-                          className={cn(
-                            'text-xs px-1 py-0.5 rounded border truncate cursor-pointer hover:opacity-80 transition-opacity',
-                            colors.bg,
-                            colors.text,
-                            isCancelled && 'line-through'
-                          )}
-                        >
-                          {isCompleted && '✓ '}
-                          {new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} {appt.pet?.name}
+          {/* ---- WEEK VIEW: compact time + name ---- */}
+          {view === 'week' && (
+            <div className="overflow-x-auto">
+              <div className="min-w-[560px]">
+                {/* Day headers — click to navigate to day view */}
+                <div className="grid grid-cols-7 gap-px mb-px">
+                  {weekDays.map((day, idx) => {
+                    const todayFlag = isSameDay(day, new Date())
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => { setCurrentDate(day); setView('day') }}
+                        className={cn(
+                          'p-2 text-center cursor-pointer hover:bg-slate-800/50 transition-colors rounded-t',
+                          todayFlag && 'bg-emerald-600/10'
+                        )}
+                      >
+                        <div className="text-xs text-slate-500">
+                          {day.toLocaleDateString('en-US', { weekday: 'short' })}
                         </div>
-                      )
-                    })}
-                    {dayAppts.length > 3 && (
-                      <div className="text-xs text-slate-500 pl-1">+{dayAppts.length - 3} more</div>
-                    )}
-                  </div>
+                        <div className={cn(
+                          'text-sm font-medium w-7 h-7 mx-auto flex items-center justify-center rounded-full',
+                          todayFlag ? 'bg-emerald-600 text-white' : 'text-white'
+                        )}>
+                          {day.getDate()}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Appointment columns */}
+                <div className="grid grid-cols-7 gap-px bg-slate-800 rounded-lg overflow-hidden">
+                  {weekDays.map((day, idx) => {
+                    const dayAppts = getApptsForDate(day)
+                    return (
+                      <div key={idx} className="bg-slate-900 min-h-[200px] p-1 space-y-0.5">
+                        {dayAppts.map(appt => (
+                          <div
+                            key={appt.id}
+                            onClick={() => setSelectedAppointment(appt)}
+                            className="flex items-center gap-1 px-1 py-0.5 rounded cursor-pointer hover:bg-slate-800 transition-colors"
+                          >
+                            <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', getApptDotColor(appt))} />
+                            <span className={cn(
+                              'text-xs truncate',
+                              appt.status === 'cancelled' ? 'text-slate-600 line-through' : 'text-slate-300'
+                            )}>
+                              {new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} {appt.pet?.name}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ---- DAY VIEW: full appointment details ---- */}
+          {view === 'day' && (() => {
+            const dayAppts = getApptsForDate(currentDate)
+            if (dayAppts.length === 0) {
+              return (
+                <div className="text-center py-12 text-slate-500">
+                  <p>No appointments for this day</p>
+                  <Button
+                    onClick={() => openAddDialog()}
+                    className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Appointment
+                  </Button>
                 </div>
               )
-            })}
-          </div>
+            }
+            return (
+              <div className="space-y-3">
+                {dayAppts.map(appt => {
+                  const isCompleted = appt.status === 'completed'
+                  const isCancelled = appt.status === 'cancelled'
+                  const colors = isCancelled
+                    ? CANCELLED_COLORS
+                    : isCompleted
+                    ? COMPLETED_COLORS
+                    : SERVICE_COLORS[appt.service_type] ?? SERVICE_COLORS.other
+                  const dt = new Date(appt.scheduled_datetime)
+                  return (
+                    <div
+                      key={appt.id}
+                      onClick={() => setSelectedAppointment(appt)}
+                      className={cn('p-4 rounded-lg border cursor-pointer hover:opacity-90 transition-opacity', colors.bg)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={cn('text-sm font-semibold tabular-nums', colors.text)}>
+                              {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                            </span>
+                            <span className="text-white font-medium">{appt.pet?.name}</span>
+                            {appt.pet?.breed && <span className="text-slate-500 text-xs">{appt.pet.breed}</span>}
+                            {isCompleted && <span className="text-emerald-400 text-xs">✓ completed</span>}
+                            {isCancelled && <span className="text-slate-500 text-xs line-through">cancelled</span>}
+                          </div>
+                          <p className="text-slate-400 text-sm mt-0.5">
+                            {appt.client?.first_name} {appt.client?.last_name}
+                          </p>
+                          <p className={cn('text-xs mt-1 capitalize', colors.text)}>
+                            {appt.service_type.replace('_', ' ')} · {appt.duration_minutes} min
+                            {appt.price != null ? ` · $${appt.price.toFixed(2)}` : ''}
+                          </p>
+                          {appt.notes && (
+                            <p className="text-slate-400 text-xs mt-1 italic">"{appt.notes}"</p>
+                          )}
+                          {appt.service_notes && (
+                            <p className="text-slate-300 text-xs mt-1">Grooming notes: {appt.service_notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </CardContent>
       </Card>
 
@@ -578,7 +799,9 @@ export default function CalendarPage() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-slate-500 uppercase tracking-wide">Pet</p>
-                    <p className="text-sm text-white">{appt.pet?.name} <span className="text-slate-400">({appt.pet?.breed ?? appt.pet?.species})</span></p>
+                    <p className="text-sm text-white">
+                      {appt.pet?.name} <span className="text-slate-400">({appt.pet?.breed ?? appt.pet?.species})</span>
+                    </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-slate-500 uppercase tracking-wide">Service</p>
@@ -592,8 +815,12 @@ export default function CalendarPage() {
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-slate-500 uppercase tracking-wide">Date & Time</p>
-                    <p className="text-sm text-white">{dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-                    <p className="text-xs text-slate-400">{dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
+                    <p className="text-sm text-white">
+                      {dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </p>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-slate-500 uppercase tracking-wide">Price</p>

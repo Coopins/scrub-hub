@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar, Users, CheckCircle } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function DashboardPage() {
   const supabase = await createServerSupabaseClient()
@@ -53,31 +54,51 @@ export default async function DashboardPage() {
           {profile?.business_name} — {today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       </div>
+
+      {/* Stats cards — each links to its relevant section */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-slate-400 text-sm font-medium">Today</CardTitle>
-            <Calendar className="w-4 h-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent><p className="text-3xl font-bold text-white">{todayAppts?.length ?? 0}</p></CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-slate-400 text-sm font-medium">This Week</CardTitle>
-            <CheckCircle className="w-4 h-4 text-blue-500" />
-          </CardHeader>
-          <CardContent><p className="text-3xl font-bold text-white">{upcomingCount ?? 0}</p></CardContent>
-        </Card>
-        <Card className="bg-slate-900 border-slate-800">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-slate-400 text-sm font-medium">Total Clients</CardTitle>
-            <Users className="w-4 h-4 text-purple-500" />
-          </CardHeader>
-          <CardContent><p className="text-3xl font-bold text-white">{clientCount ?? 0}</p></CardContent>
-        </Card>
+        <Link href="/calendar" className="block">
+          <Card className="bg-slate-900 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-slate-400 text-sm font-medium">Today</CardTitle>
+              <Calendar className="w-4 h-4 text-emerald-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-white">{todayAppts?.length ?? 0}</p>
+              <p className="text-xs text-slate-500 mt-1">appointments</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/calendar" className="block">
+          <Card className="bg-slate-900 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-slate-400 text-sm font-medium">This Week</CardTitle>
+              <CheckCircle className="w-4 h-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-white">{upcomingCount ?? 0}</p>
+              <p className="text-xs text-slate-500 mt-1">upcoming</p>
+            </CardContent>
+          </Card>
+        </Link>
+
+        <Link href="/clients" className="block">
+          <Card className="bg-slate-900 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-slate-400 text-sm font-medium">Total Clients</CardTitle>
+              <Users className="w-4 h-4 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-white">{clientCount ?? 0}</p>
+              <p className="text-xs text-slate-500 mt-1">in your roster</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
+
       <Card className="bg-slate-900 border-slate-800">
-        <CardHeader><CardTitle className="text-white">Today's Schedule</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="text-white">Today&apos;s Schedule</CardTitle></CardHeader>
         <CardContent>
           {!todayAppts || todayAppts.length === 0 ? (
             <div className="text-center py-8 text-slate-500">
@@ -95,7 +116,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-white text-sm">{new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
-                    {appt.price && <p className="text-emerald-400 text-sm">\${appt.price}</p>}
+                    {appt.price && <p className="text-emerald-400 text-sm">${appt.price}</p>}
                   </div>
                 </div>
               ))}
