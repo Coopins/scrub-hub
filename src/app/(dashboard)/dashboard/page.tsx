@@ -108,7 +108,7 @@ export default async function DashboardPage() {
           ) : (
             <div className="space-y-3">
               {todayAppts.map((appt: any) => (
-                <div key={appt.id} className="flex items-center gap-4 p-3 rounded-lg bg-slate-800 border border-slate-700">
+                <div key={appt.id} className="flex items-center gap-4 p-4 rounded-lg bg-slate-800 border border-slate-700 min-h-[64px]">
                   <div className={`w-3 h-3 rounded-full flex-shrink-0 ${serviceColors[appt.service_type] ?? 'bg-slate-500'}`} />
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-medium">{appt.pet?.name} — {appt.client?.first_name} {appt.client?.last_name}</p>

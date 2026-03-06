@@ -30,12 +30,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-slate-950 flex">
+      {/* Overlay for mobile sidebar (Sign Out access) */}
       {mobileOpen && (
-        <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-20 md:hidden" onClick={() => setMobileOpen(false)} />
       )}
+
+      {/* Sidebar — visible at md+ always, mobile slide-in for Sign Out */}
       <aside className={cn(
         "fixed left-0 top-0 h-full w-64 bg-slate-900 border-r border-slate-800 z-30 flex flex-col transition-transform duration-200",
-        mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -51,7 +54,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => {
             const Icon = item.icon
-            const active = pathname === item.href
+            const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
             return (
               <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
                 className={cn(
@@ -71,18 +74,49 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </Button>
         </div>
       </aside>
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        <header className="lg:hidden bg-slate-900 border-b border-slate-800 p-4 flex items-center gap-4">
+
+      {/* Main area */}
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+        {/* Mobile top bar — shown below md, hamburger opens sidebar for Sign Out */}
+        <header className="md:hidden bg-slate-900 border-b border-slate-800 px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-emerald-600 p-1.5 rounded-md">
+              <Scissors className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-white font-bold text-sm">Scrub Hub</span>
+          </div>
+          {/* Hamburger opens sidebar for Sign Out access */}
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} className="text-slate-400">
             <Menu className="w-5 h-5" />
           </Button>
-          <div className="flex items-center gap-2">
-            <Scissors className="w-4 h-4 text-emerald-500" />
-            <span className="text-white font-bold">Scrub Hub</span>
-          </div>
         </header>
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+
+        {/* Page content — extra bottom padding on mobile for bottom nav clearance */}
+        <main className="flex-1 p-4 pb-24 md:p-6 md:pb-6">{children}</main>
       </div>
+
+      {/* Mobile Bottom Tab Bar — hidden at md+ */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900 border-t border-slate-800 safe-area-inset-bottom">
+        <div className="flex h-16">
+          {navItems.map((item) => {
+            const Icon = item.icon
+            const active = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href + '/'))
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex-1 flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors',
+                  active ? 'text-emerald-400' : 'text-slate-500 active:text-slate-300'
+                )}
+              >
+                <Icon className={cn('w-5 h-5', active ? 'text-emerald-400' : 'text-slate-500')} />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
     </div>
   )
 }

@@ -133,7 +133,7 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Clients</h1>
           <p className="text-slate-400">{clients.length} total clients</p>
@@ -142,19 +142,19 @@ export default function ClientsPage() {
           onClick={() => setShowAddDialog(true)}
           className="bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
         >
-          <Plus className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">Add Client</span>
+          <Plus className="w-4 h-4 md:mr-2" />
+          <span className="hidden md:inline">Add Client</span>
         </Button>
       </div>
 
-      {/* Search */}
+      {/* Search — prominent, full-width, large tap target */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
         <Input
           placeholder="Search by name, phone, or email..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500"
+          className="pl-10 bg-slate-900 border-slate-700 text-white placeholder:text-slate-500 h-12 md:h-11"
         />
       </div>
 
@@ -170,7 +170,7 @@ export default function ClientsPage() {
           {filtered.map((client) => (
             <Link key={client.id} href={`/clients/${client.id}`}>
             <Card className="bg-slate-900 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer">
-              <CardContent className="p-4">
+              <CardContent className="p-5 md:p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">

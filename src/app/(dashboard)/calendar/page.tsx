@@ -420,12 +420,13 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-bold text-white">Calendar</h1>
           <p className="text-slate-400">Manage your appointments</p>
         </div>
+        {/* Desktop: button in header. Mobile: replaced by FAB below */}
         <Button
           onClick={() => openAddDialog()}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
+          className="hidden md:flex bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
         >
-          <Plus className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">New Appointment</span>
+          <Plus className="w-4 h-4 mr-2" />
+          New Appointment
         </Button>
       </div>
 
@@ -509,7 +510,7 @@ export default function CalendarPage() {
               </div>
               <div className="grid grid-cols-7 gap-px bg-slate-800 rounded-lg overflow-hidden">
                 {Array.from({ length: firstDay }).map((_, i) => (
-                  <div key={`empty-${i}`} className="bg-slate-900 min-h-[80px] p-1" />
+                  <div key={`empty-${i}`} className="bg-slate-900 min-h-[72px] md:min-h-[80px] p-1" />
                 ))}
                 {Array.from({ length: daysInMonth }).map((_, i) => {
                   const day = i + 1
@@ -518,7 +519,7 @@ export default function CalendarPage() {
                     <div
                       key={day}
                       onClick={() => handleMonthDayClick(day)}
-                      className="bg-slate-900 min-h-[80px] p-1 hover:bg-slate-800/50 transition-colors cursor-pointer"
+                      className="bg-slate-900 min-h-[72px] md:min-h-[80px] p-1 hover:bg-slate-800/50 transition-colors cursor-pointer"
                     >
                       <div className={cn(
                         'text-xs font-medium w-6 h-6 flex items-center justify-center rounded-full mb-1',
@@ -1129,6 +1130,15 @@ export default function CalendarPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Mobile FAB — fixed above bottom nav, hidden on md+ */}
+      <button
+        onClick={() => openAddDialog()}
+        className="md:hidden fixed bottom-20 right-4 z-30 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-lg flex items-center justify-center transition-colors"
+        aria-label="New Appointment"
+      >
+        <Plus className="w-6 h-6 text-white" />
+      </button>
     </div>
   )
 }

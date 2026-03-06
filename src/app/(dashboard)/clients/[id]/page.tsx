@@ -361,8 +361,8 @@ export default function ClientDetailPage() {
           onClick={() => setShowEditClient(true)}
           className="bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
         >
-          <Edit className="w-4 h-4 sm:mr-2" />
-          <span className="hidden sm:inline">Edit</span>
+          <Edit className="w-4 h-4 md:mr-2" />
+          <span className="hidden md:inline">Edit</span>
         </Button>
       </div>
 
@@ -417,7 +417,7 @@ export default function ClientDetailPage() {
           <Card className="bg-slate-900 border-slate-800">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-white">Pets ({pets.length})</CardTitle>
-              <Button size="sm" onClick={() => setShowAddPet(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button size="sm" onClick={() => setShowAddPet(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white h-10 md:h-8 px-4 md:px-3">
                 <Plus className="w-4 h-4 mr-1" /> Add Pet
               </Button>
             </CardHeader>
@@ -430,7 +430,7 @@ export default function ClientDetailPage() {
               ) : (
                 <div className="space-y-3">
                   {pets.map(pet => (
-                    <div key={pet.id} className="p-4 rounded-lg bg-slate-800 border border-slate-700">
+                    <div key={pet.id} className="p-5 md:p-4 rounded-lg bg-slate-800 border border-slate-700">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-medium">{pet.name}</p>
@@ -440,22 +440,22 @@ export default function ClientDetailPage() {
                           {pet.temperament_notes && <p className="text-yellow-300 text-sm mt-2">⚠️ {pet.temperament_notes}</p>}
                           {pet.medical_notes && <p className="text-blue-300 text-sm mt-1">🏥 {pet.medical_notes}</p>}
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
+                        <div className="flex items-center gap-2 flex-shrink-0">
                           <Button
                             size="icon"
                             variant="ghost"
                             onClick={() => openEditPet(pet)}
-                            className="w-7 h-7 text-slate-400 hover:text-white hover:bg-slate-700"
+                            className="w-10 h-10 md:w-7 md:h-7 text-slate-400 hover:text-white hover:bg-slate-700"
                           >
-                            <Edit className="w-3.5 h-3.5" />
+                            <Edit className="w-4 h-4 md:w-3.5 md:h-3.5" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
                             onClick={() => handleDeletePet(pet)}
-                            className="w-7 h-7 text-slate-400 hover:text-red-400 hover:bg-red-950/30"
+                            className="w-10 h-10 md:w-7 md:h-7 text-slate-400 hover:text-red-400 hover:bg-red-950/30"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <Trash2 className="w-4 h-4 md:w-3.5 md:h-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -470,7 +470,7 @@ export default function ClientDetailPage() {
           <Card className="bg-slate-900 border-slate-800">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-white">Appointment History</CardTitle>
-              <Button size="sm" onClick={handleScheduleClick} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <Button size="sm" onClick={handleScheduleClick} className="bg-emerald-600 hover:bg-emerald-700 text-white h-10 md:h-8 px-4 md:px-3">
                 <Calendar className="w-4 h-4 mr-1" /> Schedule
               </Button>
             </CardHeader>
@@ -496,7 +496,7 @@ export default function ClientDetailPage() {
               ) : (
                 <div className="space-y-2">
                   {appointments.map(appt => (
-                    <div key={appt.id} className="flex items-center gap-3 p-3 rounded-lg bg-slate-800 border border-slate-700">
+                    <div key={appt.id} className="flex items-center gap-3 p-4 md:p-3 rounded-lg bg-slate-800 border border-slate-700 min-h-[60px]">
                       <div className={`w-2 h-2 rounded-full flex-shrink-0 ${serviceColors[appt.service_type] ?? 'bg-slate-500'}`} />
                       <div className="flex-1 min-w-0">
                         <p className="text-white text-sm">
