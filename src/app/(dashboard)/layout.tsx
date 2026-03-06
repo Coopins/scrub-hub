@@ -81,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="text-white font-bold">Scrub Hub</span>
           </div>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   )

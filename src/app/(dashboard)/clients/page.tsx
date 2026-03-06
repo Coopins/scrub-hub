@@ -140,10 +140,10 @@ export default function ClientsPage() {
         </div>
         <Button
           onClick={() => setShowAddDialog(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          Add Client
+          <Plus className="w-4 h-4 sm:mr-2" />
+          <span className="hidden sm:inline">Add Client</span>
         </Button>
       </div>
 
@@ -194,13 +194,13 @@ export default function ClientsPage() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 mt-1">
-                      <span className="text-slate-400 text-sm flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1">
+                      <span className="text-slate-400 text-sm flex items-center gap-1 flex-shrink-0">
                         <Phone className="w-3 h-3" /> {client.phone}
                       </span>
                       {client.email && (
-                        <span className="text-slate-400 text-sm flex items-center gap-1">
-                          <Mail className="w-3 h-3" /> {client.email}
+                        <span className="text-slate-400 text-sm flex items-center gap-1 min-w-0 truncate">
+                          <Mail className="w-3 h-3 flex-shrink-0" /> {client.email}
                         </span>
                       )}
                     </div>

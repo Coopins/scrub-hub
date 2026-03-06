@@ -422,10 +422,10 @@ export default function CalendarPage() {
         </div>
         <Button
           onClick={() => openAddDialog()}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
         >
-          <Plus className="w-4 h-4 mr-2" />
-          New Appointment
+          <Plus className="w-4 h-4 sm:mr-2" />
+          <span className="hidden sm:inline">New Appointment</span>
         </Button>
       </div>
 
@@ -527,17 +527,20 @@ export default function CalendarPage() {
                         {day}
                       </div>
                       {/* One dot per appointment, colored by service type */}
-                      <div className="flex flex-wrap gap-0.5">
+                      {/* stopPropagation on container prevents any click in dot area from navigating to day view */}
+                      <div className="flex flex-wrap gap-0.5" onClick={e => e.stopPropagation()}>
                         {dayAppts.slice(0, 14).map(appt => (
                           <div
                             key={appt.id}
                             onClick={e => { e.stopPropagation(); setSelectedAppointment(appt) }}
                             title={`${new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${appt.pet?.name} · ${appt.service_type.replace('_', ' ')}`}
-                            className={cn(
-                              'w-2 h-2 rounded-full cursor-pointer hover:scale-125 transition-transform flex-shrink-0',
+                            className="p-1 -m-1 cursor-pointer flex-shrink-0"
+                          >
+                            <div className={cn(
+                              'w-2 h-2 rounded-full hover:scale-125 transition-transform',
                               getApptDotColor(appt)
-                            )}
-                          />
+                            )} />
+                          </div>
                         ))}
                         {dayAppts.length > 14 && (
                           <span className="text-slate-500 text-xs leading-none self-center">+{dayAppts.length - 14}</span>
@@ -553,7 +556,7 @@ export default function CalendarPage() {
           {/* ---- WEEK VIEW: compact time + name ---- */}
           {view === 'week' && (
             <div className="overflow-x-auto">
-              <div className="min-w-[560px]">
+              <div className="min-w-[700px]">
                 {/* Day headers — click to navigate to day view */}
                 <div className="grid grid-cols-7 gap-px mb-px">
                   {weekDays.map((day, idx) => {
@@ -585,20 +588,28 @@ export default function CalendarPage() {
                   {weekDays.map((day, idx) => {
                     const dayAppts = getApptsForDate(day)
                     return (
-                      <div key={idx} className="bg-slate-900 min-h-[200px] p-1 space-y-0.5">
+                      <div key={idx} className="bg-slate-900 min-h-[200px] p-1.5 space-y-1">
                         {dayAppts.map(appt => (
                           <div
                             key={appt.id}
                             onClick={() => setSelectedAppointment(appt)}
-                            className="flex items-center gap-1 px-1 py-0.5 rounded cursor-pointer hover:bg-slate-800 transition-colors"
+                            className="flex items-start gap-1.5 px-1.5 py-1 rounded cursor-pointer hover:bg-slate-800 transition-colors"
                           >
-                            <div className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', getApptDotColor(appt))} />
-                            <span className={cn(
-                              'text-xs truncate',
-                              appt.status === 'cancelled' ? 'text-slate-600 line-through' : 'text-slate-300'
-                            )}>
-                              {new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} {appt.pet?.name}
-                            </span>
+                            <div className={cn('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', getApptDotColor(appt))} />
+                            <div className="min-w-0">
+                              <div className={cn(
+                                'text-xs font-medium leading-tight',
+                                appt.status === 'cancelled' ? 'text-slate-600 line-through' : 'text-slate-300'
+                              )}>
+                                {new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                              </div>
+                              <div className={cn(
+                                'text-xs truncate leading-tight',
+                                appt.status === 'cancelled' ? 'text-slate-600' : 'text-slate-400'
+                              )}>
+                                {appt.pet?.name}
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -627,7 +638,7 @@ export default function CalendarPage() {
               )
             }
             return (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {dayAppts.map(appt => {
                   const isCompleted = appt.status === 'completed'
                   const isCancelled = appt.status === 'cancelled'
@@ -641,7 +652,7 @@ export default function CalendarPage() {
                     <div
                       key={appt.id}
                       onClick={() => setSelectedAppointment(appt)}
-                      className={cn('p-4 rounded-lg border cursor-pointer hover:opacity-90 transition-opacity', colors.bg)}
+                      className={cn('p-5 rounded-lg border cursor-pointer hover:opacity-90 transition-opacity', colors.bg)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">

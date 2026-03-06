@@ -343,15 +343,15 @@ export default function ClientDetailPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4">
         <Link href="/clients">
-          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white">
+          <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white flex-shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-2xl font-bold text-white">{client.first_name} {client.last_name}</h1>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-bold text-white">{client.first_name} {client.last_name}</h1>
             {statusBadge(client.status)}
             {client.no_text_messages && <span title="No text messages"><MessageSquareOff className="w-4 h-4 text-yellow-400" /></span>}
             {client.deposit_required && <span title="Deposit required"><DollarSign className="w-4 h-4 text-yellow-400" /></span>}
@@ -359,9 +359,10 @@ export default function ClientDetailPage() {
         </div>
         <Button
           onClick={() => setShowEditClient(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          className="bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
         >
-          <Edit className="w-4 h-4 mr-2" /> Edit
+          <Edit className="w-4 h-4 sm:mr-2" />
+          <span className="hidden sm:inline">Edit</span>
         </Button>
       </div>
 
