@@ -426,7 +426,7 @@ export default function CalendarPage() {
           className="hidden md:flex bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0"
         >
           <Plus className="w-4 h-4 mr-2" />
-          New Appointment
+          Schedule Appointment
         </Button>
       </div>
 
@@ -633,7 +633,7 @@ export default function CalendarPage() {
                     className="mt-4 bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Appointment
+                    Schedule Appointment
                   </Button>
                 </div>
               )
@@ -695,7 +695,7 @@ export default function CalendarPage() {
         <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">
-              {editingAppointmentId ? 'Edit Appointment' : 'New Appointment'}
+              {editingAppointmentId ? 'Edit Appointment' : 'Schedule Appointment'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -1135,7 +1135,7 @@ export default function CalendarPage() {
       <button
         onClick={() => openAddDialog()}
         className="md:hidden fixed bottom-20 right-4 z-30 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 shadow-lg flex items-center justify-center transition-colors"
-        aria-label="New Appointment"
+        aria-label="Schedule Appointment"
       >
         <Plus className="w-6 h-6 text-white" />
       </button>

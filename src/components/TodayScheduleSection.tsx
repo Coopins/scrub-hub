@@ -232,7 +232,7 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
       <Dialog open={showAddDialog} onOpenChange={open => { if (!open) handleCloseAddDialog() }}>
         <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-white">New Appointment</DialogTitle>
+            <DialogTitle className="text-white">Schedule Appointment</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {/* Client */}
