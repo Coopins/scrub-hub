@@ -41,7 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
       )}>
         <div className="p-6 border-b border-slate-800">
-          <div className="flex items-center gap-3">
+          <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="bg-emerald-600 p-2 rounded-lg">
               <Scissors className="w-5 h-5 text-white" />
             </div>
@@ -49,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <h1 className="text-white font-bold text-lg leading-none">Scrub Hub</h1>
               <p className="text-slate-500 text-xs">Grooming Software</p>
             </div>
-          </div>
+          </Link>
         </div>
         <nav className="flex-1 p-4 space-y-1">
           {navItems.map((item) => {
@@ -79,12 +79,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         {/* Mobile top bar — shown below md, hamburger opens sidebar for Sign Out */}
         <header className="md:hidden bg-slate-900 border-b border-slate-800 px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link href="/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <div className="bg-emerald-600 p-1.5 rounded-md">
               <Scissors className="w-4 h-4 text-white" />
             </div>
             <span className="text-white font-bold text-sm">Scrub Hub</span>
-          </div>
+          </Link>
           {/* Hamburger opens sidebar for Sign Out access */}
           <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} className="text-slate-400">
             <Menu className="w-5 h-5" />
