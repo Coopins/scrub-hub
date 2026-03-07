@@ -535,7 +535,7 @@ export default function CalendarPage() {
                             key={appt.id}
                             onClick={e => { e.stopPropagation(); setSelectedAppointment(appt) }}
                             title={`${new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${appt.pet?.name} · ${appt.service_type.replace('_', ' ')}`}
-                            className="p-1 -m-1 cursor-pointer flex-shrink-0"
+                            className="p-2 cursor-pointer flex-shrink-0 touch-manipulation"
                           >
                             <div className={cn(
                               'w-2 h-2 rounded-full hover:scale-125 transition-transform',
@@ -556,8 +556,8 @@ export default function CalendarPage() {
 
           {/* ---- WEEK VIEW: compact time + name ---- */}
           {view === 'week' && (
-            <div className="overflow-x-auto">
-              <div className="min-w-[700px]">
+            <div className="overflow-x-auto touch-pan-x">
+              <div className="min-w-[770px]">
                 {/* Day headers — click to navigate to day view */}
                 <div className="grid grid-cols-7 gap-px mb-px">
                   {weekDays.map((day, idx) => {
@@ -639,7 +639,7 @@ export default function CalendarPage() {
               )
             }
             return (
-              <div className="space-y-4">
+              <div className="space-y-5 md:space-y-4">
                 {dayAppts.map(appt => {
                   const isCompleted = appt.status === 'completed'
                   const isCancelled = appt.status === 'cancelled'
@@ -653,7 +653,7 @@ export default function CalendarPage() {
                     <div
                       key={appt.id}
                       onClick={() => setSelectedAppointment(appt)}
-                      className={cn('p-5 rounded-lg border cursor-pointer hover:opacity-90 transition-opacity', colors.bg)}
+                      className={cn('p-5 md:p-6 rounded-lg border cursor-pointer hover:opacity-90 transition-opacity touch-manipulation', colors.bg)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -666,10 +666,10 @@ export default function CalendarPage() {
                             {isCompleted && <span className="text-emerald-400 text-xs">✓ completed</span>}
                             {isCancelled && <span className="text-slate-500 text-xs line-through">cancelled</span>}
                           </div>
-                          <p className="text-slate-400 text-sm mt-0.5">
+                          <p className="text-slate-400 text-sm mt-1">
                             {appt.client?.first_name} {appt.client?.last_name}
                           </p>
-                          <p className={cn('text-xs mt-1 capitalize', colors.text)}>
+                          <p className={cn('text-xs mt-2 capitalize', colors.text)}>
                             {appt.service_type.replace('_', ' ')} · {appt.duration_minutes} min
                             {appt.price != null ? ` · $${appt.price.toFixed(2)}` : ''}
                           </p>
