@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { ArrowLeft, Plus, Phone, Mail, MapPin, Edit, Dog, AlertTriangle, MessageSquareOff, DollarSign, Trash2, Calendar, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import { scheduleReminders } from '@/lib/scheduleReminders'
 
 const emptyPetForm = {
   name: '', species: 'dog', breed: '', age: '', weight: '',
@@ -257,7 +258,7 @@ export default function ClientDetailPage() {
     setSavingAppt(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSavingAppt(false); return }
-    const { error } = await supabase.from('appointments').insert({
+    const { data: newAppt, error } = await supabase.from('appointments').insert({
       groomer_id: user.id,
       client_id: clientId,
       pet_id: apptForm.pet_id,
@@ -266,13 +267,14 @@ export default function ClientDetailPage() {
       duration_minutes: apptForm.duration_minutes,
       price: apptForm.price ? parseFloat(apptForm.price) : null,
       notes: apptForm.notes,
-    })
+    }).select('id').single()
     if (error) { toast.error(error.message); setSavingAppt(false); return }
     toast.success('Appointment scheduled!')
     setShowScheduleDialog(false)
     setApptForm(BLANK_APPT_FORM)
     fetchAll()
     setSavingAppt(false)
+    if (newAppt?.id) scheduleReminders(newAppt.id, user.id).catch(() => {})
   }
 
   async function handleEditPet(e: React.FormEvent) {

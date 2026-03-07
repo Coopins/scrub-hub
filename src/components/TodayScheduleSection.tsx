@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Calendar, Plus, AlertTriangle, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { scheduleReminders } from '@/lib/scheduleReminders'
 
 const BLANK_FORM = {
   client_id: '',
@@ -111,7 +112,7 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
 
-    const { error } = await supabase.from('appointments').insert({
+    const { data: newAppt, error } = await supabase.from('appointments').insert({
       groomer_id: user.id,
       client_id: form.client_id,
       pet_id: form.pet_id,
@@ -120,7 +121,7 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
       duration_minutes: form.duration_minutes,
       price: form.price ? parseFloat(form.price) : null,
       notes: form.notes,
-    })
+    }).select('id').single()
 
     if (error) {
       toast.error('Failed to save appointment')
@@ -132,6 +133,7 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
     handleCloseAddDialog()
     router.refresh()
     setSaving(false)
+    if (newAppt?.id) scheduleReminders(newAppt.id, user.id).catch(() => {})
   }
 
   async function handleSaveNewClient() {

@@ -41,6 +41,20 @@ export interface Pet {
   client?: Client
 }
 
+export type NotificationStatus = 'pending' | 'sent' | 'failed' | 'skipped'
+
+export interface Notification {
+  id: string
+  appointment_id: string
+  groomer_id: string
+  type: string
+  scheduled_for: string
+  sent_at: string | null
+  status: NotificationStatus
+  message_body: string | null
+  created_at: string
+}
+
 export interface Appointment {
   id: string
   groomer_id: string

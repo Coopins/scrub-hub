@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Plus, AlertTriangle, CheckCircle, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, AlertTriangle, CheckCircle, X, Bell } from 'lucide-react'
+import { scheduleReminders } from '@/lib/scheduleReminders'
+import { type Notification } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 
@@ -93,6 +95,7 @@ export default function CalendarPage() {
   const [showNewPetForm, setShowNewPetForm] = useState(false)
   const [newPetForm, setNewPetForm] = useState(BLANK_NEW_PET)
   const [savingPet, setSavingPet] = useState(false)
+  const [selectedApptNotifications, setSelectedApptNotifications] = useState<Notification[]>([])
 
   const supabase = createClient()
 
@@ -219,6 +222,21 @@ export default function CalendarPage() {
     setNewPetForm(BLANK_NEW_PET)
   }
 
+  function handleCloseDetailDialog() {
+    setSelectedAppointment(null)
+    setSelectedApptNotifications([])
+  }
+
+  async function handleSelectAppointment(appt: Appointment) {
+    setSelectedAppointment(appt)
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('appointment_id', appt.id)
+      .order('scheduled_for')
+    setSelectedApptNotifications((data ?? []) as Notification[])
+  }
+
   async function handleSaveNewClient() {
     if (!newClientForm.first_name || !newClientForm.last_name || !newClientForm.phone) return
     setSavingClient(true)
@@ -275,10 +293,18 @@ export default function CalendarPage() {
     }
 
     let error
+    let savedId: string | undefined
     if (editingAppointmentId) {
       ;({ error } = await supabase.from('appointments').update(payload).eq('id', editingAppointmentId))
+      savedId = editingAppointmentId
     } else {
-      ;({ error } = await supabase.from('appointments').insert({ ...payload, groomer_id: user.id }))
+      const { data: newAppt, error: insertError } = await supabase
+        .from('appointments')
+        .insert({ ...payload, groomer_id: user.id })
+        .select('id')
+        .single()
+      error = insertError
+      savedId = newAppt?.id
     }
 
     if (error) {
@@ -291,6 +317,8 @@ export default function CalendarPage() {
     handleCloseAddDialog()
     fetchData()
     setSaving(false)
+    // Schedule reminders non-blocking — don't fail the UX if this errors
+    if (savedId) scheduleReminders(savedId, user.id).catch(() => {})
   }
 
   async function handleCancelAppointment(appointmentId: string) {
@@ -307,7 +335,7 @@ export default function CalendarPage() {
     }
 
     toast.success('Appointment cancelled')
-    setSelectedAppointment(null)
+    handleCloseDetailDialog()
     fetchData()
     setCancelling(false)
   }
@@ -329,7 +357,7 @@ export default function CalendarPage() {
     toast.success('Appointment marked complete!')
     setShowCompletePrompt(false)
     setCompleteNotes('')
-    setSelectedAppointment(null)
+    handleCloseDetailDialog()
     fetchData()
     setCompleting(false)
   }
@@ -533,7 +561,7 @@ export default function CalendarPage() {
                         {dayAppts.slice(0, 14).map(appt => (
                           <div
                             key={appt.id}
-                            onClick={e => { e.stopPropagation(); setSelectedAppointment(appt) }}
+                            onClick={e => { e.stopPropagation(); handleSelectAppointment(appt) }}
                             title={`${new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · ${appt.pet?.name} · ${appt.service_type.replace('_', ' ')}`}
                             className="p-2 cursor-pointer flex-shrink-0 touch-manipulation"
                           >
@@ -593,7 +621,7 @@ export default function CalendarPage() {
                         {dayAppts.map(appt => (
                           <div
                             key={appt.id}
-                            onClick={() => setSelectedAppointment(appt)}
+                            onClick={() => handleSelectAppointment(appt)}
                             className="flex items-start gap-1.5 px-1.5 py-1 rounded cursor-pointer hover:bg-slate-800 transition-colors"
                           >
                             <div className={cn('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', getApptDotColor(appt))} />
@@ -652,7 +680,7 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={appt.id}
-                      onClick={() => setSelectedAppointment(appt)}
+                      onClick={() => handleSelectAppointment(appt)}
                       className={cn('p-5 md:p-6 rounded-lg border cursor-pointer hover:opacity-90 transition-opacity touch-manipulation', colors.bg)}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1004,7 +1032,7 @@ export default function CalendarPage() {
       </Dialog>
 
       {/* Appointment Detail Dialog */}
-      <Dialog open={!!selectedAppointment} onOpenChange={open => { if (!open) setSelectedAppointment(null) }}>
+      <Dialog open={!!selectedAppointment} onOpenChange={open => { if (!open) handleCloseDetailDialog() }}>
         <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="text-white">Appointment Details</DialogTitle>
@@ -1062,6 +1090,34 @@ export default function CalendarPage() {
                     <p className="text-sm text-slate-300 bg-slate-800 rounded-md px-3 py-2">{appt.notes}</p>
                   </div>
                 )}
+                {selectedApptNotifications.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
+                      <Bell className="w-3 h-3" />
+                      Reminders
+                    </p>
+                    <div className="space-y-1.5">
+                      {selectedApptNotifications.map(n => (
+                        <div key={n.id} className="flex items-center justify-between gap-2">
+                          <span className="text-slate-400 text-xs">
+                            {new Date(n.scheduled_for).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            {' at '}
+                            {new Date(n.scheduled_for).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                          </span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full border capitalize flex-shrink-0 ${
+                            n.status === 'sent'    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                            n.status === 'failed'  ? 'bg-red-500/20 text-red-400 border-red-500/30' :
+                            n.status === 'skipped' ? 'bg-slate-500/20 text-slate-400 border-slate-500/30' :
+                                                     'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'
+                          }`}>
+                            {n.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {!isCompleted && !isCancelled && (
                   <Button
                     onClick={() => setShowCompletePrompt(true)}
