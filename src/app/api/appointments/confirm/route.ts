@@ -43,8 +43,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ skipped: true, reason: 'appointment not found' })
   }
 
-  const client = appt.client as { first_name: string; phone: string; no_text_messages: boolean } | null
-  const pet    = appt.pet    as { name: string } | null
+  const client = appt.client as unknown as { first_name: string; phone: string; no_text_messages: boolean } | null
+  const pet    = appt.pet    as unknown as { name: string } | null
 
   // Skip if client opted out
   if (!client || client.no_text_messages || !client.phone) {

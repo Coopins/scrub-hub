@@ -41,8 +41,8 @@ export async function scheduleReminders(
 
   if (!appt) return
 
-  const client = appt.client as { first_name: string; phone: string; no_text_messages: boolean } | null
-  const pet    = appt.pet    as { name: string } | null
+  const client = appt.client as unknown as { first_name: string; phone: string; no_text_messages: boolean } | null
+  const pet    = appt.pet    as unknown as { name: string } | null
 
   // Delete existing pending notifications (handles rescheduling on edit)
   await supabase
