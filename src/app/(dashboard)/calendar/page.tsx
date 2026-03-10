@@ -318,7 +318,17 @@ export default function CalendarPage() {
     fetchData()
     setSaving(false)
     // Schedule reminders non-blocking — don't fail the UX if this errors
-    if (savedId) scheduleReminders(savedId, user.id).catch(() => {})
+    if (savedId) {
+      scheduleReminders(savedId, user.id).catch(() => {})
+      // Send confirmation SMS only on new appointments
+      if (!editingAppointmentId) {
+        fetch('/api/appointments/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ appointmentId: savedId, groomerId: user.id }),
+        }).catch(() => {})
+      }
+    }
   }
 
   async function handleCancelAppointment(appointmentId: string) {

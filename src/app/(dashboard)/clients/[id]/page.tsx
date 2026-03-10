@@ -274,7 +274,14 @@ export default function ClientDetailPage() {
     setApptForm(BLANK_APPT_FORM)
     fetchAll()
     setSavingAppt(false)
-    if (newAppt?.id) scheduleReminders(newAppt.id, user.id).catch(() => {})
+    if (newAppt?.id) {
+      scheduleReminders(newAppt.id, user.id).catch(() => {})
+      fetch('/api/appointments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: newAppt.id, groomerId: user.id }),
+      }).catch(() => {})
+    }
   }
 
   async function handleEditPet(e: React.FormEvent) {

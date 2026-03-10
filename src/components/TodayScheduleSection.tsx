@@ -133,7 +133,14 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
     handleCloseAddDialog()
     router.refresh()
     setSaving(false)
-    if (newAppt?.id) scheduleReminders(newAppt.id, user.id).catch(() => {})
+    if (newAppt?.id) {
+      scheduleReminders(newAppt.id, user.id).catch(() => {})
+      fetch('/api/appointments/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: newAppt.id, groomerId: user.id }),
+      }).catch(() => {})
+    }
   }
 
   async function handleSaveNewClient() {

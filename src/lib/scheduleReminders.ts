@@ -9,7 +9,7 @@ export interface ReminderPreferences {
 export const DEFAULT_PREFERENCES: ReminderPreferences = {
   reminder_1week: false,
   reminder_24h: true,
-  reminder_2h: false,
+  reminder_2h: true,
 }
 
 const REMINDER_WINDOWS = [

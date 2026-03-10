@@ -21,7 +21,7 @@ const REMINDER_OPTIONS: { key: keyof ReminderPreferences; label: string; descrip
   {
     key: 'reminder_2h',
     label: '2 Hours Before',
-    description: 'Sent the morning of — useful for early appointments',
+    description: 'Sent 2 hours ahead — a same-day nudge for clients',
   },
 ]
 
@@ -106,6 +106,17 @@ export default function SettingsPage() {
         </CardHeader>
 
         <CardContent className="space-y-3">
+          {/* Booking confirmation — always on, not toggleable */}
+          <div className="w-full flex items-center justify-between gap-4 p-4 rounded-lg bg-slate-800 border border-slate-700 min-h-[64px]">
+            <div className="flex-1 min-w-0">
+              <p className="text-white font-medium text-sm leading-snug">Booking Confirmation</p>
+              <p className="text-slate-400 text-xs mt-0.5 leading-snug">Sent instantly when an appointment is scheduled</p>
+            </div>
+            <div className="relative flex-shrink-0 w-12 h-7 rounded-full bg-emerald-600">
+              <div className="absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm translate-x-6" />
+            </div>
+          </div>
+
           {loading ? (
             <div className="py-6 text-center text-slate-500 text-sm">Loading preferences…</div>
           ) : (
