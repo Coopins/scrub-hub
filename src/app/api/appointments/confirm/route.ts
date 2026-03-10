@@ -1,3 +1,4 @@
+// Sends an instant booking confirmation SMS via Twilio when an appointment is created.
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase-service'
 import twilio from 'twilio'
