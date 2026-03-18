@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Bell } from 'lucide-react'
+import { Bell, MessageSquare } from 'lucide-react'
 import { toast } from 'sonner'
 import { type ReminderPreferences, DEFAULT_PREFERENCES } from '@/lib/scheduleReminders'
 
@@ -46,6 +46,7 @@ export default function SettingsPage() {
   const [prefs, setPrefs] = useState<ReminderPreferences>(DEFAULT_PREFERENCES)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [testingSms, setTestingSms] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -63,6 +64,23 @@ export default function SettingsPage() {
     }
     load()
   }, [])
+
+  async function handleTestSms() {
+    setTestingSms(true)
+    try {
+      const res = await fetch('/api/sms/test', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? 'Failed to send test SMS')
+      } else {
+        toast.success('Test SMS sent!')
+      }
+    } catch {
+      toast.error('Failed to send test SMS')
+    } finally {
+      setTestingSms(false)
+    }
+  }
 
   async function handleToggle(key: keyof ReminderPreferences) {
     if (saving) return
@@ -142,6 +160,29 @@ export default function SettingsPage() {
               </p>
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+            <CardTitle className="text-white">Test SMS</CardTitle>
+          </div>
+          <p className="text-slate-400 text-sm mt-1">
+            Send a test message to your own phone number to verify SMS delivery is working.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={handleTestSms}
+            disabled={testingSms}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <MessageSquare className="w-4 h-4" />
+            {testingSms ? 'Sending…' : 'Send Test SMS to My Phone'}
+          </button>
         </CardContent>
       </Card>
     </div>
