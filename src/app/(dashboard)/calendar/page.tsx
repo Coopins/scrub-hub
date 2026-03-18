@@ -1007,20 +1007,22 @@ export default function CalendarPage() {
             <div className="space-y-1">
               <Label className="text-slate-300">Client *</Label>
               <div className="flex items-center gap-2">
-                <div className="flex-1">
-                  <Select value={form.client_id} onValueChange={handleClientChange}>
-                    <SelectTrigger className="bg-slate-800 border-slate-600 text-white w-full">
-                      <SelectValue placeholder="Select client..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border-slate-600">
-                      {clients.map(c => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.first_name} {c.last_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                {!showNewClientForm && (
+                  <div className="flex-1">
+                    <Select value={form.client_id} onValueChange={handleClientChange}>
+                      <SelectTrigger className="bg-slate-800 border-slate-600 text-white w-full">
+                        <SelectValue placeholder="Select client..." />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-600">
+                        {clients.map(c => (
+                          <SelectItem key={c.id} value={c.id} className="text-white focus:bg-slate-700 focus:text-white">
+                            {c.first_name} {c.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 {!editingAppointmentId && (
                   <button
                     type="button"
@@ -1781,13 +1783,6 @@ export default function CalendarPage() {
                 {panelAppts.length === 0 ? (
                   <div className="text-center py-6">
                     <p className="text-slate-500 text-sm mb-3">No appointments</p>
-                    <Button
-                      size="sm"
-                      onClick={() => { setDayPanelDate(null); openAddDialog(prefill) }}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                    >
-                      <Plus className="w-4 h-4 mr-1" /> Schedule
-                    </Button>
                   </div>
                 ) : (
                   panelAppts.map(appt => {
@@ -1814,14 +1809,16 @@ export default function CalendarPage() {
                 )}
               </div>
               <div className="px-4 pb-4 pt-3 border-t border-slate-800 flex gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-slate-400 hover:text-white"
-                  onClick={() => { setDayPanelDate(null); setCurrentDate(dayPanelDate); setView('day') }}
-                >
-                  View Day
-                </Button>
+                {panelAppts.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1 text-slate-400 hover:text-white"
+                    onClick={() => { setDayPanelDate(null); setCurrentDate(dayPanelDate); setView('day') }}
+                  >
+                    View Day
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
