@@ -1303,13 +1303,12 @@ export default function CalendarPage() {
                   <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-600">
-                    <SelectItem value="cash">💵 Cash</SelectItem>
-                    <SelectItem value="card">💳 Card</SelectItem>
-                    <SelectItem value="check">📝 Check</SelectItem>
-                    <SelectItem value="venmo">📱 Venmo</SelectItem>
-                    <SelectItem value="zelle">📲 Zelle</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
+                  <SelectContent className="bg-slate-800 border-slate-600 text-white">
+                    <SelectItem value="cash" className="text-white focus:bg-slate-700 focus:text-white">💵 Cash</SelectItem>
+                    <SelectItem value="card" className="text-white focus:bg-slate-700 focus:text-white">💳 Card</SelectItem>
+                    <SelectItem value="venmo" className="text-white focus:bg-slate-700 focus:text-white">📱 Venmo</SelectItem>
+                    <SelectItem value="zelle" className="text-white focus:bg-slate-700 focus:text-white">📲 Zelle</SelectItem>
+                    <SelectItem value="other" className="text-white focus:bg-slate-700 focus:text-white">Other</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

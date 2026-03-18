@@ -56,7 +56,7 @@ export interface Notification {
 }
 
 export type PaymentStatus = 'unpaid' | 'paid' | 'partial'
-export type PaymentMethod = 'cash' | 'card' | 'check' | 'venmo' | 'zelle' | 'other'
+export type PaymentMethod = 'cash' | 'card' | 'venmo' | 'zelle' | 'other'
 
 export interface Appointment {
   id: string

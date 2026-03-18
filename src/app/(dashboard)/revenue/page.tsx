@@ -20,7 +20,6 @@ type PaymentRow = {
 const METHOD_LABELS: Record<string, string> = {
   cash: '💵 Cash',
   card: '💳 Card',
-  check: '📝 Check',
   venmo: '📱 Venmo',
   zelle: '📲 Zelle',
   other: 'Other',
@@ -66,7 +65,7 @@ export default function RevenuePage() {
   const weekTotal  = sumPayments(p => new Date(p.scheduled_datetime) >= startOfWeek(now))
   const monthTotal = sumPayments(() => true)
 
-  const allMethods = ['cash', 'card', 'check', 'venmo', 'zelle', 'other']
+  const allMethods = ['cash', 'card', 'venmo', 'zelle', 'other']
   const byMethod = allMethods
     .map(method => ({
       method,
