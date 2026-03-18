@@ -41,6 +41,8 @@ export default function ClientsPage() {
     status: 'active' as Client['status'],
     no_text_messages: false,
     deposit_required: false,
+    dog_aggressive: false,
+    unpaid_balance: 0,
     notes: '',
   })
 
@@ -85,7 +87,7 @@ export default function ClientsPage() {
     setForm({
       first_name: '', last_name: '', phone: '', email: '',
       address: '', status: 'active', no_text_messages: false,
-      deposit_required: false, notes: '',
+      deposit_required: false, dog_aggressive: false, unpaid_balance: 0, notes: '',
     })
     fetchClients()
     setSaving(false)
@@ -192,6 +194,12 @@ export default function ClientsPage() {
                         <span title="Do not book">
                           <AlertTriangle className="w-4 h-4 text-red-400" />
                         </span>
+                      )}
+                      {client.dog_aggressive && (
+                        <span title="Dog aggressive — schedule end of day" className="text-xs px-1.5 py-0.5 rounded border bg-orange-500/20 text-orange-400 border-orange-500/30">🐕</span>
+                      )}
+                      {client.unpaid_balance > 0 && (
+                        <span title={`Unpaid balance: $${client.unpaid_balance.toFixed(2)}`} className="text-xs px-1.5 py-0.5 rounded border bg-red-500/20 text-red-400 border-red-500/30">💰 ${client.unpaid_balance.toFixed(2)}</span>
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1">
@@ -380,7 +388,7 @@ export default function ClientsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -399,6 +407,27 @@ export default function ClientsPage() {
                 />
                 <span className="text-slate-300 text-sm">Deposit Required</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.dog_aggressive}
+                  onChange={e => setForm({ ...form, dog_aggressive: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-slate-300 text-sm">🐕 Dog Aggressive</span>
+              </label>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Unpaid Balance ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.unpaid_balance}
+                onChange={e => setForm({ ...form, unpaid_balance: parseFloat(e.target.value) || 0 })}
+                placeholder="0.00"
+                className="bg-slate-800 border-slate-600 text-white"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-slate-300">Notes</Label>

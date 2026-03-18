@@ -21,6 +21,8 @@ export interface Client {
   status: ClientStatus
   no_text_messages: boolean
   deposit_required: boolean
+  dog_aggressive: boolean
+  unpaid_balance: number
   notes?: string
   created_at: string
   pets?: Pet[]

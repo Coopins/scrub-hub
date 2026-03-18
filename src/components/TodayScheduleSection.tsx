@@ -43,7 +43,8 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
 
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showSmartPopup, setShowSmartPopup] = useState(false)
-  const [popupWarnings, setPopupWarnings] = useState<string[]>([])
+  const [popupWarnings, setPopupWarnings] = useState<{ text: string; className: string }[]>([])
+  const [isDNBClient, setIsDNBClient] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState(BLANK_FORM)
   const [clients, setClients] = useState<any[]>([])
@@ -85,13 +86,15 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
     fetchPetsForClient(clientId)
   }
 
-  function checkWarnings(clientId: string): string[] {
+  function checkWarnings(clientId: string): { text: string; className: string }[] {
     const client = clients.find(c => c.id === clientId)
     if (!client) return []
-    const warnings: string[] = []
-    if (client.status === 'do_not_book') warnings.push('⛔ DO NOT BOOK — Check notes before scheduling')
-    if (client.deposit_required) warnings.push('💰 DEPOSIT REQUIRED before confirming appointment')
-    if (client.no_text_messages) warnings.push('📵 NO TEXT MESSAGES — Must call to confirm')
+    const warnings: { text: string; className: string }[] = []
+    if (client.status === 'do_not_book') warnings.push({ text: '🚫 DO NOT BOOK — Check notes before scheduling', className: 'bg-red-950/40 border border-red-500/60 rounded-lg p-3 text-sm text-red-300' })
+    if (client.unpaid_balance > 0) warnings.push({ text: `💰 UNPAID BALANCE — $${client.unpaid_balance.toFixed(2)} owed`, className: 'bg-red-950/40 border border-red-500/60 rounded-lg p-3 text-sm text-red-300' })
+    if (client.deposit_required) warnings.push({ text: '⚠️ DEPOSIT REQUIRED before confirming appointment', className: 'bg-yellow-950/40 border border-yellow-500/60 rounded-lg p-3 text-sm text-yellow-300' })
+    if (client.no_text_messages) warnings.push({ text: '📵 NO TEXT MESSAGES — Must call to confirm', className: 'bg-yellow-950/40 border border-yellow-500/60 rounded-lg p-3 text-sm text-yellow-300' })
+    if (client.dog_aggressive) warnings.push({ text: '🐕 DOG AGGRESSIVE — Schedule at end of day', className: 'bg-orange-950/40 border border-orange-500/60 rounded-lg p-3 text-sm text-orange-300' })
     return warnings
   }
 
@@ -99,6 +102,8 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
     if (!form.client_id) return
     const warnings = checkWarnings(form.client_id)
     if (warnings.length > 0) {
+      const client = clients.find(c => c.id === form.client_id)
+      setIsDNBClient(client?.status === 'do_not_book')
       setPopupWarnings(warnings)
       setShowSmartPopup(true)
     } else {
@@ -415,20 +420,22 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
 
       {/* Smart Popup Warning Dialog */}
       <Dialog open={showSmartPopup} onOpenChange={setShowSmartPopup}>
-        <DialogContent className="bg-slate-900 border-yellow-500/50 text-white max-w-md">
+        <DialogContent className="bg-slate-900 border-red-500/50 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-yellow-400 flex items-center gap-2">
+            <DialogTitle className="text-red-400 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5" />
-              Heads Up Before Scheduling
+              Client Alerts
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {popupWarnings.map((w, i) => (
-              <div key={i} className="bg-slate-800 border border-slate-700 rounded-lg p-3 text-sm text-slate-200">{w}</div>
+              <div key={i} className={w.className}>{w.text}</div>
             ))}
             <div className="flex gap-3 pt-2">
               <Button onClick={() => setShowSmartPopup(false)} className="flex-1 bg-red-600 hover:bg-red-700 text-white">Cancel</Button>
-              <Button onClick={handleSave} className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white">Proceed Anyway</Button>
+              {!isDNBClient && (
+                <Button onClick={handleSave} className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white">Proceed Anyway</Button>
+              )}
             </div>
           </div>
         </DialogContent>

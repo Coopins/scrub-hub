@@ -175,8 +175,12 @@ export default function ClientDetailPage() {
 
   const [editForm, setEditForm] = useState({
     first_name: '', last_name: '', phone: '', email: '', address: '',
-    status: 'active' as string, no_text_messages: false, deposit_required: false, notes: '',
+    status: 'active' as string, no_text_messages: false, deposit_required: false,
+    dog_aggressive: false, unpaid_balance: 0, notes: '',
   })
+  const [showSmartPopup, setShowSmartPopup] = useState(false)
+  const [isDNBClient, setIsDNBClient] = useState(false)
+  const [popupWarnings, setPopupWarnings] = useState<{ text: string; className: string }[]>([])
 
   async function fetchAll() {
     const { data: clientData } = await supabase
@@ -192,6 +196,8 @@ export default function ClientDetailPage() {
       status: clientData.status,
       no_text_messages: clientData.no_text_messages,
       deposit_required: clientData.deposit_required,
+      dog_aggressive: clientData.dog_aggressive ?? false,
+      unpaid_balance: clientData.unpaid_balance ?? 0,
       notes: clientData.notes ?? '',
     })
     const { data: petsData } = await supabase
@@ -250,6 +256,20 @@ export default function ClientDetailPage() {
     }
     const prefillPetId = pets.length === 1 ? pets[0].id : ''
     setApptForm({ ...BLANK_APPT_FORM, pet_id: prefillPetId })
+    if (client) {
+      const warnings: { text: string; className: string }[] = []
+      if (client.status === 'do_not_book') warnings.push({ text: '🚫 DO NOT BOOK — Check notes before scheduling', className: 'bg-red-950/40 border border-red-500/60 rounded-lg p-3 text-sm text-red-300' })
+      if (client.unpaid_balance > 0) warnings.push({ text: `💰 UNPAID BALANCE — $${client.unpaid_balance.toFixed(2)} owed`, className: 'bg-red-950/40 border border-red-500/60 rounded-lg p-3 text-sm text-red-300' })
+      if (client.deposit_required) warnings.push({ text: '⚠️ DEPOSIT REQUIRED before confirming appointment', className: 'bg-yellow-950/40 border border-yellow-500/60 rounded-lg p-3 text-sm text-yellow-300' })
+      if (client.no_text_messages) warnings.push({ text: '📵 NO TEXT MESSAGES — Must call to confirm', className: 'bg-yellow-950/40 border border-yellow-500/60 rounded-lg p-3 text-sm text-yellow-300' })
+      if (client.dog_aggressive) warnings.push({ text: '🐕 DOG AGGRESSIVE — Schedule at end of day', className: 'bg-orange-950/40 border border-orange-500/60 rounded-lg p-3 text-sm text-orange-300' })
+      if (warnings.length > 0) {
+        setIsDNBClient(client.status === 'do_not_book')
+        setPopupWarnings(warnings)
+        setShowSmartPopup(true)
+        return
+      }
+    }
     setShowScheduleDialog(true)
   }
 
@@ -364,6 +384,8 @@ export default function ClientDetailPage() {
             {statusBadge(client.status)}
             {client.no_text_messages && <span title="No text messages"><MessageSquareOff className="w-4 h-4 text-yellow-400" /></span>}
             {client.deposit_required && <span title="Deposit required"><DollarSign className="w-4 h-4 text-yellow-400" /></span>}
+            {client.dog_aggressive && <span title="Dog aggressive — schedule end of day" className="text-xs px-2 py-0.5 rounded-full border bg-orange-500/20 text-orange-400 border-orange-500/30">🐕 Dog Aggressive</span>}
+            {client.unpaid_balance > 0 && <span title="Unpaid balance" className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-400 border-red-500/30">💰 ${client.unpaid_balance.toFixed(2)} Owed</span>}
           </div>
         </div>
         <Button
@@ -397,7 +419,7 @@ export default function ClientDetailPage() {
             </CardContent>
           </Card>
 
-          {(client.status === 'do_not_book' || client.no_text_messages || client.deposit_required) && (
+          {(client.status === 'do_not_book' || client.no_text_messages || client.deposit_required || client.dog_aggressive || client.unpaid_balance > 0) && (
             <Card className="bg-red-950/30 border-red-800/50">
               <CardHeader>
                 <CardTitle className="text-red-400 text-sm flex items-center gap-2">
@@ -405,9 +427,11 @@ export default function ClientDetailPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {client.status === 'do_not_book' && <p className="text-red-300 text-sm">⛔ Do Not Book</p>}
+                {client.status === 'do_not_book' && <p className="text-red-300 text-sm">🚫 Do Not Book</p>}
+                {client.unpaid_balance > 0 && <p className="text-red-300 text-sm">💰 Unpaid Balance — ${client.unpaid_balance.toFixed(2)} owed</p>}
                 {client.no_text_messages && <p className="text-yellow-300 text-sm">📵 No Text Messages — Call to confirm</p>}
-                {client.deposit_required && <p className="text-yellow-300 text-sm">💰 Deposit Required before scheduling</p>}
+                {client.deposit_required && <p className="text-yellow-300 text-sm">⚠️ Deposit Required before scheduling</p>}
+                {client.dog_aggressive && <p className="text-orange-300 text-sm">🐕 Dog Aggressive — Schedule at end of day</p>}
               </CardContent>
             </Card>
           )}
@@ -750,7 +774,7 @@ export default function ClientDetailPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
@@ -769,6 +793,27 @@ export default function ClientDetailPage() {
                 />
                 <span className="text-slate-300 text-sm">Deposit Required</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editForm.dog_aggressive}
+                  onChange={e => setEditForm({ ...editForm, dog_aggressive: e.target.checked })}
+                  className="rounded"
+                />
+                <span className="text-slate-300 text-sm">🐕 Dog Aggressive</span>
+              </label>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Unpaid Balance ($)</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={editForm.unpaid_balance}
+                onChange={e => setEditForm({ ...editForm, unpaid_balance: parseFloat(e.target.value) || 0 })}
+                placeholder="0.00"
+                className="bg-slate-800 border-slate-600 text-white"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-slate-300">Notes</Label>
@@ -792,6 +837,39 @@ export default function ClientDetailPage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Smart Popup Warning Dialog */}
+      <Dialog open={showSmartPopup} onOpenChange={setShowSmartPopup}>
+        <DialogContent className="bg-slate-900 border-red-500/50 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-400 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5" />
+              Client Alerts
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {popupWarnings.map((w, i) => (
+              <div key={i} className={w.className}>{w.text}</div>
+            ))}
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={() => setShowSmartPopup(false)}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                Cancel
+              </Button>
+              {!isDNBClient && (
+                <Button
+                  onClick={() => { setShowSmartPopup(false); setShowScheduleDialog(true) }}
+                  className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white"
+                >
+                  Proceed Anyway
+                </Button>
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
