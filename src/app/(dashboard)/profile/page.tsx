@@ -22,6 +22,14 @@ const inputClass =
 
 const labelClass = 'block text-slate-300 text-sm font-medium mb-1.5'
 
+function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 10)
+  if (digits.length === 0) return ''
+  if (digits.length <= 3) return `(${digits}`
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+}
+
 export default function ProfilePage() {
   const supabase = createClient()
 
@@ -145,6 +153,7 @@ export default function ProfilePage() {
               placeholder="123 Main St, Springfield, IL 62701"
               className={inputClass}
             />
+            <p className="text-slate-500 text-xs mt-1.5">Used for client booking pages and confirmations</p>
           </div>
         </CardContent>
       </Card>
@@ -204,6 +213,7 @@ export default function ProfilePage() {
               type="tel"
               value={phone}
               onChange={e => setPhone(e.target.value)}
+              onBlur={() => setPhone(formatPhone(phone))}
               placeholder="(555) 555-5555"
               className={inputClass}
             />
@@ -236,14 +246,16 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {saving ? 'Saving…' : 'Save Profile'}
-      </button>
+      <div className="sticky bottom-0 z-10 py-4 bg-slate-950/95 backdrop-blur border-t border-slate-800 -mx-4 px-4 sm:-mx-6 sm:px-6">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full max-w-2xl py-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Saving…' : 'Save Profile'}
+        </button>
+      </div>
     </div>
   )
 }
