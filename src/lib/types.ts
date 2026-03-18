@@ -55,6 +55,9 @@ export interface Notification {
   created_at: string
 }
 
+export type PaymentStatus = 'unpaid' | 'paid' | 'partial'
+export type PaymentMethod = 'cash' | 'card' | 'check' | 'venmo' | 'zelle' | 'other'
+
 export interface Appointment {
   id: string
   groomer_id: string
@@ -70,6 +73,12 @@ export interface Appointment {
   color_code?: string
   reminder_sent: boolean
   created_at: string
+  payment_status?: PaymentStatus
+  payment_method?: PaymentMethod
+  amount_paid?: number
+  deposit_amount?: number
+  payment_note?: string
+  paid_at?: string
   client?: Client
   pet?: Pet
 }

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Plus, AlertTriangle, CheckCircle, X, Bell } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, AlertTriangle, CheckCircle, X, Bell, DollarSign } from 'lucide-react'
 import { scheduleReminders } from '@/lib/scheduleReminders'
 import { type Notification } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,12 @@ const SERVICE_COLORS: Record<string, { bg: string; text: string; dot: string }> 
 
 const CANCELLED_COLORS = { bg: 'bg-slate-700/30 border-slate-600/30', text: 'text-slate-600' }
 const COMPLETED_COLORS  = { bg: 'bg-slate-600/20 border-slate-500/30', text: 'text-slate-500' }
+
+function PaymentBadge({ status }: { status?: string }) {
+  if (status === 'paid')    return <span className="text-xs px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Paid</span>
+  if (status === 'partial') return <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">Partial</span>
+  return <span className="text-xs px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">Unpaid</span>
+}
 
 type CalendarView = 'month' | 'week' | 'day'
 
@@ -87,7 +93,6 @@ export default function CalendarPage() {
   const [cancelling, setCancelling] = useState(false)
   const [showCompletePrompt, setShowCompletePrompt] = useState(false)
   const [completeNotes, setCompleteNotes] = useState('')
-  const [completing, setCompleting] = useState(false)
   const [form, setForm] = useState(BLANK_FORM)
   const [showNewClientForm, setShowNewClientForm] = useState(false)
   const [newClientForm, setNewClientForm] = useState(BLANK_NEW_CLIENT)
@@ -96,6 +101,12 @@ export default function CalendarPage() {
   const [newPetForm, setNewPetForm] = useState(BLANK_NEW_PET)
   const [savingPet, setSavingPet] = useState(false)
   const [selectedApptNotifications, setSelectedApptNotifications] = useState<Notification[]>([])
+  const [showPaymentPrompt, setShowPaymentPrompt]   = useState(false)
+  const [paymentAmount, setPaymentAmount]           = useState('')
+  const [paymentMethod, setPaymentMethod]           = useState('cash')
+  const [depositAmount, setDepositAmount]           = useState('')
+  const [paymentNote, setPaymentNote]               = useState('')
+  const [savingPayment, setSavingPayment]           = useState(false)
 
   const supabase = createClient()
 
@@ -350,26 +361,61 @@ export default function CalendarPage() {
     setCancelling(false)
   }
 
-  async function handleMarkComplete() {
+  function handleProceedToPayment() {
+    setShowCompletePrompt(false)
+    setPaymentAmount(selectedAppointment?.price != null ? String(selectedAppointment.price) : '')
+    setPaymentMethod('cash')
+    setDepositAmount('')
+    setPaymentNote('')
+    setShowPaymentPrompt(true)
+  }
+
+  async function handleSaveCompletion(skipPayment: boolean) {
     if (!selectedAppointment) return
-    setCompleting(true)
+    setSavingPayment(true)
+
+    const amountPaid = !skipPayment && paymentAmount ? parseFloat(paymentAmount) : null
+    const deposit    = !skipPayment && depositAmount  ? parseFloat(depositAmount)  : null
+    const apptPrice  = selectedAppointment.price ?? 0
+    const payStatus  = skipPayment || amountPaid === null ? 'unpaid'
+      : amountPaid >= apptPrice ? 'paid'
+      : amountPaid > 0          ? 'partial'
+      : 'unpaid'
+
+    const updateData: Record<string, unknown> = {
+      status: 'completed',
+      service_notes: completeNotes || null,
+      payment_status: payStatus,
+    }
+    if (!skipPayment && amountPaid !== null) {
+      updateData.payment_method  = paymentMethod
+      updateData.amount_paid     = amountPaid
+      updateData.deposit_amount  = deposit
+      updateData.payment_note    = paymentNote || null
+      updateData.paid_at         = new Date().toISOString()
+    }
+
     const { error } = await supabase
       .from('appointments')
-      .update({ status: 'completed', service_notes: completeNotes || null })
+      .update(updateData)
       .eq('id', selectedAppointment.id)
 
     if (error) {
-      toast.error('Failed to mark as complete')
-      setCompleting(false)
+      toast.error('Failed to save')
+      setSavingPayment(false)
       return
     }
 
-    toast.success('Appointment marked complete!')
-    setShowCompletePrompt(false)
+    toast.success(skipPayment ? 'Appointment marked complete!' : 'Complete & payment recorded!')
+    setShowPaymentPrompt(false)
     setCompleteNotes('')
+    setPaymentAmount('')
+    setPaymentMethod('cash')
+    setDepositAmount('')
+    setPaymentNote('')
     handleCloseDetailDialog()
     fetchData()
-    setCompleting(false)
+    setSavingPayment(false)
   }
 
   // ---- Navigation ----
@@ -703,6 +749,7 @@ export default function CalendarPage() {
                             {appt.pet?.breed && <span className="text-slate-500 text-xs">{appt.pet.breed}</span>}
                             {isCompleted && <span className="text-emerald-400 text-xs">✓ completed</span>}
                             {isCancelled && <span className="text-slate-500 text-xs line-through">cancelled</span>}
+                            {isCompleted && <PaymentBadge status={appt.payment_status} />}
                           </div>
                           <p className="text-slate-400 text-sm mt-1">
                             {appt.client?.first_name} {appt.client?.last_name}
@@ -1093,6 +1140,23 @@ export default function CalendarPage() {
                     <p className="text-xs text-slate-500 uppercase tracking-wide">Price</p>
                     <p className="text-sm text-white">{appt.price != null ? `$${appt.price.toFixed(2)}` : '—'}</p>
                   </div>
+                  {isCompleted && (
+                    <div className="space-y-1">
+                      <p className="text-xs text-slate-500 uppercase tracking-wide">Payment</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <PaymentBadge status={appt.payment_status} />
+                        {appt.amount_paid != null && (
+                          <span className="text-sm text-white">${appt.amount_paid.toFixed(2)}</span>
+                        )}
+                        {appt.payment_method && (
+                          <span className="text-xs text-slate-400 capitalize">{appt.payment_method}</span>
+                        )}
+                      </div>
+                      {appt.payment_note && (
+                        <p className="text-xs text-slate-400 italic">{appt.payment_note}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {appt.notes && (
                   <div className="space-y-1">
@@ -1135,6 +1199,22 @@ export default function CalendarPage() {
                   >
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Mark Complete
+                  </Button>
+                )}
+                {isCompleted && appt.payment_status !== 'paid' && (
+                  <Button
+                    onClick={() => {
+                      setPaymentAmount(appt.amount_paid != null ? String(appt.amount_paid) : appt.price != null ? String(appt.price) : '')
+                      setPaymentMethod(appt.payment_method ?? 'cash')
+                      setDepositAmount(appt.deposit_amount != null ? String(appt.deposit_amount) : '')
+                      setPaymentNote(appt.payment_note ?? '')
+                      setCompleteNotes(appt.service_notes ?? '')
+                      setShowPaymentPrompt(true)
+                    }}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <DollarSign className="w-4 h-4 mr-2" />
+                    Record Payment
                   </Button>
                 )}
                 <div className="flex gap-3">
@@ -1186,11 +1266,92 @@ export default function CalendarPage() {
                 Cancel
               </Button>
               <Button
-                onClick={handleMarkComplete}
-                disabled={completing}
+                onClick={handleProceedToPayment}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                {completing ? 'Saving...' : 'Mark Complete'}
+                Next: Record Payment →
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Record Payment Dialog */}
+      <Dialog open={showPaymentPrompt} onOpenChange={open => { if (!open) { setShowPaymentPrompt(false) } }}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-emerald-400" />
+              Record Payment
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-slate-300">Amount Paid ($)</Label>
+                <Input
+                  type="number"
+                  value={paymentAmount}
+                  onChange={e => setPaymentAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-slate-300">Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                  <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    <SelectItem value="cash">💵 Cash</SelectItem>
+                    <SelectItem value="card">💳 Card</SelectItem>
+                    <SelectItem value="check">📝 Check</SelectItem>
+                    <SelectItem value="venmo">📱 Venmo</SelectItem>
+                    <SelectItem value="zelle">📲 Zelle</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {selectedAppointment?.client?.deposit_required && (
+              <div className="space-y-1">
+                <Label className="text-slate-300">Deposit Applied ($) <span className="text-slate-500 font-normal">(optional)</span></Label>
+                <Input
+                  type="number"
+                  value={depositAmount}
+                  onChange={e => setDepositAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <Label className="text-slate-300">Note <span className="text-slate-500 font-normal">(optional)</span></Label>
+              <Input
+                value={paymentNote}
+                onChange={e => setPaymentNote(e.target.value)}
+                placeholder="e.g. Tip included, split payment..."
+                className="bg-slate-800 border-slate-600 text-white"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                onClick={() => handleSaveCompletion(true)}
+                disabled={savingPayment}
+                className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300"
+              >
+                Skip for Now
+              </Button>
+              <Button
+                onClick={() => handleSaveCompletion(false)}
+                disabled={savingPayment || !paymentAmount}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {savingPayment ? 'Saving...' : 'Save Payment'}
               </Button>
             </div>
           </div>

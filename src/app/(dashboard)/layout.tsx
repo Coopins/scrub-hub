@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Calendar, Users, LayoutDashboard, LogOut, Menu, Scissors, Settings, UserCircle } from 'lucide-react'
+import { Calendar, Users, LayoutDashboard, LogOut, Menu, Scissors, Settings, UserCircle, DollarSign } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/profile',   label: 'Profile',   icon: UserCircle },
   { href: '/calendar',  label: 'Calendar',  icon: Calendar },
   { href: '/clients',   label: 'Clients',   icon: Users },
+  { href: '/revenue',   label: 'Revenue',   icon: DollarSign },
   { href: '/settings',  label: 'Settings',  icon: Settings },
 ]
 
