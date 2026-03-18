@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar, Users, CheckCircle } from 'lucide-react'
+import { Calendar, DollarSign, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import TodayScheduleSection from '@/components/TodayScheduleSection'
 
@@ -26,9 +26,6 @@ export default async function DashboardPage() {
     .neq('status', 'cancelled')
     .order('scheduled_datetime')
 
-  const { count: clientCount } = await supabase
-    .from('clients').select('*', { count: 'exact', head: true }).eq('groomer_id', user.id)
-
   const { count: upcomingCount } = await supabase
     .from('appointments').select('*', { count: 'exact', head: true })
     .eq('groomer_id', user.id)
@@ -45,6 +42,13 @@ export default async function DashboardPage() {
     .neq('status', 'cancelled')
     .order('scheduled_datetime')
     .limit(3)
+
+  const todayRevenue = (todayAppts ?? [])
+    .filter(a => a.payment_status === 'paid' || a.payment_status === 'partial')
+    .reduce((sum, a) => sum + (a.amount_paid ?? 0), 0)
+  const revenueDisplay = todayRevenue % 1 === 0
+    ? `$${todayRevenue}`
+    : `$${todayRevenue.toFixed(2)}`
 
   const { data: profile } = await supabase
     .from('groomer_profiles').select('*').eq('id', user.id).single()
@@ -90,15 +94,15 @@ export default async function DashboardPage() {
           </Card>
         </Link>
 
-        <Link href="/clients" className="block">
+        <Link href="/revenue" className="block">
           <Card className="bg-slate-900 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-slate-400 text-sm font-medium">Total Clients</CardTitle>
-              <Users className="w-4 h-4 text-purple-500" />
+              <CardTitle className="text-slate-400 text-sm font-medium">Today&apos;s Revenue</CardTitle>
+              <DollarSign className="w-4 h-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <p className="text-3xl font-bold text-white">{clientCount ?? 0}</p>
-              <p className="text-xs text-slate-500 mt-1">in your roster</p>
+              <p className="text-3xl font-bold text-white">{revenueDisplay}</p>
+              <p className="text-xs text-slate-500 mt-1">collected today</p>
             </CardContent>
           </Card>
         </Link>

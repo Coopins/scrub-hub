@@ -52,6 +52,17 @@ const serviceColors: Record<string, string> = {
   deluxe: 'bg-orange-500', nail_trim: 'bg-purple-500', other: 'bg-slate-500',
 }
 
+function formatUpcomingDate(apptDate: Date): string {
+  const time = apptDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  const tomorrow = new Date()
+  tomorrow.setHours(0, 0, 0, 0)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  const dayAfter = new Date(tomorrow)
+  dayAfter.setDate(dayAfter.getDate() + 1)
+  if (apptDate >= tomorrow && apptDate < dayAfter) return `Tomorrow · ${time}`
+  return `${apptDate.toLocaleDateString('en-US', { weekday: 'long' })} · ${time}`
+}
+
 function formatServiceLabel(service: string): string {
   return service.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
@@ -378,12 +389,7 @@ export default function TodayScheduleSection({ initialAppts, upcomingAppts = [] 
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <p className="text-white text-sm">
-                        {apptDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </p>
-                      <p className="text-slate-400 text-xs">
-                        {apptDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                      </p>
+                      <p className="text-white text-sm">{formatUpcomingDate(apptDate)}</p>
                     </div>
                   </div>
                 )
