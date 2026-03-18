@@ -36,28 +36,39 @@ export default async function DashboardPage() {
     .lt('scheduled_datetime', nextWeek.toISOString())
     .neq('status', 'cancelled')
 
+  const { data: upcomingAppts } = await supabase
+    .from('appointments')
+    .select('*, client:clients(*), pet:pets(*)')
+    .eq('groomer_id', user.id)
+    .gte('scheduled_datetime', tomorrow.toISOString())
+    .lt('scheduled_datetime', nextWeek.toISOString())
+    .neq('status', 'cancelled')
+    .order('scheduled_datetime')
+    .limit(3)
+
   const { data: profile } = await supabase
     .from('groomer_profiles').select('*').eq('id', user.id).single()
 
   const hour = new Date().getHours()
   const greeting = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'
+  const firstName = (profile as any)?.first_name ?? profile?.business_name ?? ''
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-white">Good {greeting} 👋</h1>
+        <h1 className="text-2xl font-bold text-white">Good {greeting}, {firstName}</h1>
         <p className="text-slate-400">
-          {profile?.business_name} — {today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          {today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
         </p>
       </div>
 
-      {/* Stats cards — each links to its relevant section */}
+      {/* Stats cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link href="/calendar" className="block">
-          <Card className="bg-slate-900 border-slate-800 hover:border-slate-600 transition-colors cursor-pointer">
+          <Card className="bg-slate-800 border-slate-700 border-l-4 border-l-green-500 hover:border-l-green-400 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-slate-400 text-sm font-medium">Today</CardTitle>
-              <Calendar className="w-4 h-4 text-emerald-500" />
+              <CardTitle className="text-slate-300 text-sm font-medium">Today</CardTitle>
+              <Calendar className="w-4 h-4 text-green-400" />
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-white">{todayAppts?.length ?? 0}</p>
@@ -93,7 +104,7 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
-      <TodayScheduleSection initialAppts={todayAppts ?? []} />
+      <TodayScheduleSection initialAppts={todayAppts ?? []} upcomingAppts={upcomingAppts ?? []} />
     </div>
   )
 }

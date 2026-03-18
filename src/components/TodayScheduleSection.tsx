@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { Calendar, Plus, AlertTriangle, X } from 'lucide-react'
+import { Calendar, Plus, AlertTriangle, X, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { scheduleReminders } from '@/lib/scheduleReminders'
@@ -52,14 +52,31 @@ const serviceColors: Record<string, string> = {
   deluxe: 'bg-orange-500', nail_trim: 'bg-purple-500', other: 'bg-slate-500',
 }
 
-interface Props {
-  initialAppts: any[]
+function formatServiceLabel(service: string): string {
+  return service.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-export default function TodayScheduleSection({ initialAppts }: Props) {
+function formatCountdown(apptDate: Date, now: Date): string {
+  const diffMs = apptDate.getTime() - now.getTime()
+  if (diffMs <= 0) return 'now'
+  const totalMin = Math.floor(diffMs / 60000)
+  const hours = Math.floor(totalMin / 60)
+  const mins = totalMin % 60
+  if (hours === 0) return `in ${totalMin} minute${totalMin !== 1 ? 's' : ''}`
+  if (mins === 0) return `in ${hours} hour${hours !== 1 ? 's' : ''}`
+  return `in ${hours}h ${mins}m`
+}
+
+interface Props {
+  initialAppts: any[]
+  upcomingAppts?: any[]
+}
+
+export default function TodayScheduleSection({ initialAppts, upcomingAppts = [] }: Props) {
   const router = useRouter()
   const supabase = createClient()
 
+  const [now, setNow] = useState(() => new Date())
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showSmartPopup, setShowSmartPopup] = useState(false)
   const [popupWarnings, setPopupWarnings] = useState<{ text: string; className: string }[]>([])
@@ -74,6 +91,15 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
   const [showNewPetForm, setShowNewPetForm] = useState(false)
   const [newPetForm, setNewPetForm] = useState(BLANK_NEW_PET)
   const [savingPet, setSavingPet] = useState(false)
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const nextUpAppt = initialAppts.find(
+    appt => new Date(appt.scheduled_datetime).getTime() > now.getTime()
+  )
 
   async function openAddDialog() {
     const { data } = await supabase.from('clients').select('*').order('last_name')
@@ -255,6 +281,34 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
 
   return (
     <>
+      {/* Next Up Card */}
+      {nextUpAppt && (
+        <Card className="bg-slate-800 border-slate-700 border-l-4 border-l-green-500">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock className="w-4 h-4 text-green-400 flex-shrink-0" />
+                <div>
+                  <p className="text-green-400 text-xs font-medium uppercase tracking-wide">
+                    Next Up · {formatCountdown(new Date(nextUpAppt.scheduled_datetime), now)}
+                  </p>
+                  <p className="text-white text-lg font-bold leading-tight">{nextUpAppt.pet?.name}</p>
+                  <p className="text-slate-400 text-sm">
+                    {nextUpAppt.client?.first_name} {nextUpAppt.client?.last_name} · {formatServiceLabel(nextUpAppt.service_type)}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-white font-medium">
+                  {new Date(nextUpAppt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Today's Schedule */}
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-white">Today&apos;s Schedule</CardTitle>
@@ -288,8 +342,10 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
                 <div key={appt.id} className="flex items-center gap-4 p-4 rounded-lg bg-slate-800 border border-slate-700 min-h-[64px]">
                   <div className={`w-3 h-3 rounded-full flex-shrink-0 ${serviceColors[appt.service_type] ?? 'bg-slate-500'}`} />
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium">{appt.pet?.name} — {appt.client?.first_name} {appt.client?.last_name}</p>
-                    <p className="text-slate-400 text-sm capitalize">{appt.service_type.replace('_', ' ')}</p>
+                    <p className="text-white font-semibold">{appt.pet?.name}</p>
+                    <p className="text-slate-400 text-sm">
+                      {appt.client?.first_name} {appt.client?.last_name} · {formatServiceLabel(appt.service_type)}
+                    </p>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-white text-sm">{new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
@@ -301,6 +357,41 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
           )}
         </CardContent>
       </Card>
+
+      {/* Upcoming This Week */}
+      {upcomingAppts.length > 0 && (
+        <Card className="bg-slate-900 border-slate-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-white text-base">Upcoming This Week</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {upcomingAppts.map((appt: any) => {
+                const apptDate = new Date(appt.scheduled_datetime)
+                return (
+                  <div key={appt.id} className="flex items-center gap-4 p-3 rounded-lg bg-slate-800 border border-slate-700">
+                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${serviceColors[appt.service_type] ?? 'bg-slate-500'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold">{appt.pet?.name}</p>
+                      <p className="text-slate-400 text-sm">
+                        {appt.client?.first_name} {appt.client?.last_name} · {formatServiceLabel(appt.service_type)}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-white text-sm">
+                        {apptDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </p>
+                      <p className="text-slate-400 text-xs">
+                        {apptDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* New Appointment Dialog */}
       <Dialog open={showAddDialog} onOpenChange={open => { if (!open) handleCloseAddDialog() }}>
