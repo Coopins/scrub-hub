@@ -762,7 +762,7 @@ export default function CalendarPage() {
               <Button
                 variant="ghost"
                 onClick={() => setCurrentDate(new Date())}
-                className="text-xs text-slate-400 hover:text-white border border-slate-700 px-2 h-7 rounded"
+                className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 h-7 rounded"
               >
                 Today
               </Button>
