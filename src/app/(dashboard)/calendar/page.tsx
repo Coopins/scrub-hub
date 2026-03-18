@@ -141,6 +141,9 @@ export default function CalendarPage() {
   const [editSeriesForm, setEditSeriesForm] = useState({ service_type: 'groom', duration_minutes: 90, price: '', notes: '' })
   const [savingSeriesEdit, setSavingSeriesEdit] = useState(false)
 
+  // Day-click panel
+  const [dayPanelDate, setDayPanelDate] = useState<Date | null>(null)
+
   const supabase = createClient()
 
   const year = currentDate.getFullYear()
@@ -704,10 +707,9 @@ export default function CalendarPage() {
     return SERVICE_COLORS[appt.service_type]?.dot ?? SERVICE_COLORS.other.dot
   }
 
-  // In month view, clicking a day navigates to day view instead of opening the New Appointment dialog
+  // In month view, clicking a day opens the day panel
   function handleMonthDayClick(day: number) {
-    setCurrentDate(new Date(year, month, day))
-    setView('day')
+    setDayPanelDate(new Date(year, month, day))
   }
 
   return (
@@ -1747,6 +1749,89 @@ export default function CalendarPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Day-click panel */}
+      {dayPanelDate && (() => {
+        const panelAppts = getApptsForDate(dayPanelDate)
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const prefill = `${dayPanelDate.getFullYear()}-${pad(dayPanelDate.getMonth() + 1)}-${pad(dayPanelDate.getDate())}T09:00`
+        return (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={() => setDayPanelDate(null)}>
+            <div className="absolute inset-0 bg-black/60" />
+            <div
+              className="relative w-full sm:max-w-md bg-slate-900 border border-slate-700 rounded-t-2xl sm:rounded-2xl max-h-[80vh] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+                <div>
+                  <p className="text-white font-semibold">
+                    {dayPanelDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                  </p>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    {panelAppts.length} appointment{panelAppts.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <button onClick={() => setDayPanelDate(null)} className="text-slate-400 hover:text-white p-1 rounded">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 p-4 space-y-3">
+                {panelAppts.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-slate-500 text-sm mb-3">No appointments</p>
+                    <Button
+                      size="sm"
+                      onClick={() => { setDayPanelDate(null); openAddDialog(prefill) }}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      <Plus className="w-4 h-4 mr-1" /> Schedule
+                    </Button>
+                  </div>
+                ) : (
+                  panelAppts.map(appt => {
+                    const dotColor = getApptDotColor(appt)
+                    return (
+                      <button
+                        key={appt.id}
+                        onClick={() => { setDayPanelDate(null); handleSelectAppointment(appt) }}
+                        className="w-full flex items-center gap-3 p-3 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-left transition-colors"
+                      >
+                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${dotColor}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-semibold truncate">{appt.pet?.name}</p>
+                          <p className="text-slate-400 text-xs truncate">
+                            {(appt.client as any)?.first_name} {(appt.client as any)?.last_name} · {appt.service_type.replace('_', ' ')}
+                          </p>
+                        </div>
+                        <p className="text-slate-300 text-sm flex-shrink-0">
+                          {new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        </p>
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+              <div className="px-4 pb-4 pt-3 border-t border-slate-800 flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-1 text-slate-400 hover:text-white"
+                  onClick={() => { setDayPanelDate(null); setCurrentDate(dayPanelDate); setView('day') }}
+                >
+                  View Day
+                </Button>
+                <Button
+                  size="sm"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => { setDayPanelDate(null); openAddDialog(prefill) }}
+                >
+                  <Plus className="w-4 h-4 mr-1" /> Schedule
+                </Button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Mobile FAB — fixed above bottom nav, hidden on md+ */}
       <button
