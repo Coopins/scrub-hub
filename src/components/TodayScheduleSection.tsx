@@ -360,7 +360,9 @@ export default function TodayScheduleSection({ initialAppts, upcomingAppts = [] 
                   </div>
                   <div className="text-right flex-shrink-0">
                     <p className="text-white text-sm">{new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</p>
-                    {appt.price && <p className="text-emerald-400 text-sm">${appt.price}</p>}
+                    {(appt.payment_status === 'paid' || appt.payment_status === 'partial') && appt.amount_paid > 0 && (
+                      <p className="text-emerald-400 text-sm">${appt.amount_paid}</p>
+                    )}
                   </div>
                 </div>
               ))}

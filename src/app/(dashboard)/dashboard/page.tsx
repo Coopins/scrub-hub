@@ -89,7 +89,7 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent>
               <p className="text-3xl font-bold text-white">{upcomingCount ?? 0}</p>
-              <p className="text-xs text-slate-500 mt-1">upcoming</p>
+              <p className="text-xs text-slate-500 mt-1">this week</p>
             </CardContent>
           </Card>
         </Link>
