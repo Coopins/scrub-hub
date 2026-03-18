@@ -781,21 +781,23 @@ export default function CalendarPage() {
         </CardHeader>
 
         {/* View switcher */}
-        <div className="px-6 pb-4 flex gap-1 border-b border-slate-800">
-          {(['month', 'week', 'day'] as CalendarView[]).map(v => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              className={cn(
-                'px-3 py-1 text-sm rounded transition-colors capitalize',
-                view === v
-                  ? 'bg-slate-700 text-white'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800'
-              )}
-            >
-              {v}
-            </button>
-          ))}
+        <div className="px-6 pb-4 border-b border-slate-800">
+          <div className="inline-flex rounded-lg bg-slate-800 p-1 gap-1">
+            {(['month', 'week', 'day'] as CalendarView[]).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn(
+                  'px-4 py-1.5 text-sm font-medium rounded-md transition-colors capitalize',
+                  view === v
+                    ? 'bg-green-600 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                )}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
 
         <CardContent className="pt-4">
