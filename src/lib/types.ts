@@ -81,6 +81,9 @@ export interface Appointment {
   deposit_amount?: number
   payment_note?: string
   paid_at?: string
+  is_recurring?: boolean
+  recurring_frequency?: string
+  recurring_series_id?: string
   client?: Client
   pet?: Pet
 }

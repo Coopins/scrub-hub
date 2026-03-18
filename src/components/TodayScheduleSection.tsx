@@ -23,6 +23,25 @@ const BLANK_FORM = {
   duration_minutes: 90,
   price: '',
   notes: '',
+  is_recurring: false,
+  recurring_frequency: 'every4weeks',
+}
+
+const FREQUENCY_LABELS: Record<string, string> = {
+  weekly: 'Every week',
+  biweekly: 'Every 2 weeks',
+  every3weeks: 'Every 3 weeks',
+  every4weeks: 'Every 4 weeks',
+  every6weeks: 'Every 6 weeks',
+  every8weeks: 'Every 8 weeks',
+}
+
+function getFrequencyDays(freq: string): number {
+  const map: Record<string, number> = {
+    weekly: 7, biweekly: 14, every3weeks: 21,
+    every4weeks: 28, every6weeks: 42, every8weeks: 56,
+  }
+  return map[freq] ?? 28
 }
 
 const BLANK_NEW_CLIENT = { first_name: '', last_name: '', phone: '', email: '' }
@@ -117,6 +136,9 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
 
+    const isNewRecurring = form.is_recurring
+    const seriesId = isNewRecurring ? crypto.randomUUID() : undefined
+
     const { data: newAppt, error } = await supabase.from('appointments').insert({
       groomer_id: user.id,
       client_id: form.client_id,
@@ -126,6 +148,11 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
       duration_minutes: form.duration_minutes,
       price: form.price ? parseFloat(form.price) : null,
       notes: form.notes,
+      ...(isNewRecurring && {
+        is_recurring: true,
+        recurring_frequency: form.recurring_frequency,
+        recurring_series_id: seriesId,
+      }),
     }).select('id').single()
 
     if (error) {
@@ -145,6 +172,39 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ appointmentId: newAppt.id, groomerId: user.id }),
       }).catch(() => {})
+
+      if (isNewRecurring && seriesId) {
+        const freqDays = getFrequencyDays(form.recurring_frequency)
+        const baseDate = new Date(form.scheduled_datetime)
+        const cutoff = new Date(baseDate)
+        cutoff.setFullYear(cutoff.getFullYear() + 1)
+        const batch: object[] = []
+        let next = new Date(baseDate)
+        next.setDate(next.getDate() + freqDays)
+        while (next <= cutoff) {
+          batch.push({
+            groomer_id: user.id,
+            client_id: form.client_id,
+            pet_id: form.pet_id,
+            service_type: form.service_type,
+            scheduled_datetime: next.toISOString(),
+            duration_minutes: form.duration_minutes,
+            price: form.price ? parseFloat(form.price) : null,
+            notes: form.notes,
+            is_recurring: true,
+            recurring_frequency: form.recurring_frequency,
+            recurring_series_id: seriesId,
+          })
+          next = new Date(next)
+          next.setDate(next.getDate() + freqDays)
+        }
+        if (batch.length > 0) {
+          supabase.from('appointments').insert(batch).then(() => {
+            toast.success(`🔄 Series created — ${batch.length + 1} appointments over 12 months`)
+            router.refresh()
+          })
+        }
+      }
     }
   }
 
@@ -375,11 +435,11 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
               <Select value={form.service_type} onValueChange={v => setForm(f => ({ ...f, service_type: v }))}>
                 <SelectTrigger className="bg-slate-800 border-slate-600 text-white"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="bath">🔵 Bath</SelectItem>
-                  <SelectItem value="groom">🟢 Groom</SelectItem>
-                  <SelectItem value="deluxe">🟠 Deluxe</SelectItem>
-                  <SelectItem value="nail_trim">🟣 Nail Trim</SelectItem>
-                  <SelectItem value="other">⚪ Other</SelectItem>
+                  <SelectItem value="bath" className="text-white focus:bg-slate-700 focus:text-white">🔵 Bath</SelectItem>
+                  <SelectItem value="groom" className="text-white focus:bg-slate-700 focus:text-white">🟢 Groom</SelectItem>
+                  <SelectItem value="deluxe" className="text-white focus:bg-slate-700 focus:text-white">🟠 Deluxe</SelectItem>
+                  <SelectItem value="nail_trim" className="text-white focus:bg-slate-700 focus:text-white">🟣 Nail Trim</SelectItem>
+                  <SelectItem value="other" className="text-white focus:bg-slate-700 focus:text-white">⚪ Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -408,10 +468,43 @@ export default function TodayScheduleSection({ initialAppts }: Props) {
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="bg-slate-800 border-slate-600 text-white resize-none" rows={2} />
             </div>
 
+            {/* Recurring toggle */}
+            <div className="border-t border-slate-800 pt-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-slate-300 text-sm font-medium">Make Recurring</p>
+                  <p className="text-slate-500 text-xs">Auto-schedules next 12 months</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm(f => ({ ...f, is_recurring: !f.is_recurring }))}
+                  className={cn(
+                    'relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0',
+                    form.is_recurring ? 'bg-emerald-600' : 'bg-slate-600'
+                  )}
+                >
+                  <span className={cn(
+                    'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                    form.is_recurring ? 'translate-x-6' : 'translate-x-1'
+                  )} />
+                </button>
+              </div>
+              {form.is_recurring && (
+                <Select value={form.recurring_frequency} onValueChange={v => setForm(f => ({ ...f, recurring_frequency: v }))}>
+                  <SelectTrigger className="bg-slate-800 border-slate-600 text-white"><SelectValue /></SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    {Object.entries(FREQUENCY_LABELS).map(([val, label]) => (
+                      <SelectItem key={val} value={val} className="text-white focus:bg-slate-700 focus:text-white">{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
             <div className="flex gap-3 pt-2">
               <Button onClick={handleCloseAddDialog} className="flex-1 bg-red-600 hover:bg-red-700 text-white">Cancel</Button>
               <Button onClick={handleBookClick} disabled={saving || !form.client_id || !form.pet_id || !form.scheduled_datetime} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
-                {saving ? 'Saving...' : 'Schedule'}
+                {saving ? 'Saving...' : form.is_recurring ? '🔄 Schedule Recurring' : 'Schedule'}
               </Button>
             </div>
           </div>

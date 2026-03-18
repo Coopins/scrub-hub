@@ -73,6 +73,25 @@ const BLANK_FORM = {
   duration_minutes: 90,
   price: '',
   notes: '',
+  is_recurring: false,
+  recurring_frequency: 'every4weeks',
+}
+
+const FREQUENCY_LABELS: Record<string, string> = {
+  weekly: 'Every week',
+  biweekly: 'Every 2 weeks',
+  every3weeks: 'Every 3 weeks',
+  every4weeks: 'Every 4 weeks',
+  every6weeks: 'Every 6 weeks',
+  every8weeks: 'Every 8 weeks',
+}
+
+function getFrequencyDays(freq: string): number {
+  const map: Record<string, number> = {
+    weekly: 7, biweekly: 14, every3weeks: 21,
+    every4weeks: 28, every6weeks: 42, every8weeks: 56,
+  }
+  return map[freq] ?? 28
 }
 
 const BLANK_NEW_CLIENT = { first_name: '', last_name: '', phone: '', email: '' }
@@ -108,6 +127,19 @@ export default function CalendarPage() {
   const [depositAmount, setDepositAmount]           = useState('')
   const [paymentNote, setPaymentNote]               = useState('')
   const [savingPayment, setSavingPayment]           = useState(false)
+
+  // Schedule-next prompt (shown after checkout)
+  const [showScheduleNext, setShowScheduleNext] = useState(false)
+  const [nextSeriesAppt, setNextSeriesAppt] = useState<Appointment | null>(null)
+  const [scheduleNextIsRecurring, setScheduleNextIsRecurring] = useState(false)
+  const [scheduleNextDate, setScheduleNextDate] = useState('')
+  const [completedApptRef, setCompletedApptRef] = useState<{ client_id: string; pet_id: string; service_type: string; duration_minutes: number; price: string } | null>(null)
+  const [savingScheduleNext, setSavingScheduleNext] = useState(false)
+
+  // Edit-series dialog
+  const [showEditSeries, setShowEditSeries] = useState(false)
+  const [editSeriesForm, setEditSeriesForm] = useState({ service_type: 'groom', duration_minutes: 90, price: '', notes: '' })
+  const [savingSeriesEdit, setSavingSeriesEdit] = useState(false)
 
   const supabase = createClient()
 
@@ -220,6 +252,8 @@ export default function CalendarPage() {
       duration_minutes: appt.duration_minutes,
       price: appt.price != null ? String(appt.price) : '',
       notes: appt.notes ?? '',
+      is_recurring: false,
+      recurring_frequency: 'every4weeks',
     })
     fetchPetsForClient(appt.client_id)
     setEditingAppointmentId(appt.id)
@@ -295,17 +329,22 @@ export default function CalendarPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
+    const isNewRecurring = form.is_recurring && !editingAppointmentId
+    const seriesId = isNewRecurring ? crypto.randomUUID() : undefined
+
     const payload = {
       client_id: form.client_id,
       pet_id: form.pet_id,
       service_type: form.service_type,
-      // Convert the local datetime-local string to UTC ISO before storing.
-      // Without this, the browser-local time gets interpreted as UTC in PostgreSQL,
-      // causing the appointment to appear shifted by the user's UTC offset.
       scheduled_datetime: new Date(form.scheduled_datetime).toISOString(),
       duration_minutes: form.duration_minutes,
       price: form.price ? parseFloat(form.price) : null,
       notes: form.notes,
+      ...(isNewRecurring && {
+        is_recurring: true,
+        recurring_frequency: form.recurring_frequency,
+        recurring_series_id: seriesId,
+      }),
     }
 
     let error
@@ -333,10 +372,9 @@ export default function CalendarPage() {
     handleCloseAddDialog()
     fetchData()
     setSaving(false)
-    // Schedule reminders non-blocking — don't fail the UX if this errors
+
     if (savedId) {
       scheduleReminders(savedId, user.id).catch(() => {})
-      // Send confirmation SMS only on new appointments
       if (!editingAppointmentId) {
         fetch('/api/appointments/confirm', {
           method: 'POST',
@@ -344,6 +382,56 @@ export default function CalendarPage() {
           body: JSON.stringify({ appointmentId: savedId, groomerId: user.id }),
         }).catch(() => {})
       }
+      // Generate recurring series non-blocking
+      if (isNewRecurring && seriesId) {
+        generateRecurringSeries(user.id, seriesId, form.recurring_frequency, {
+          client_id: form.client_id,
+          pet_id: form.pet_id,
+          service_type: form.service_type,
+          scheduled_datetime: new Date(form.scheduled_datetime).toISOString(),
+          duration_minutes: form.duration_minutes,
+          price: form.price ? parseFloat(form.price) : null,
+          notes: form.notes,
+        }).catch(() => {})
+      }
+    }
+  }
+
+  async function generateRecurringSeries(
+    groomerId: string,
+    seriesId: string,
+    frequency: string,
+    base: { client_id: string; pet_id: string; service_type: string; scheduled_datetime: string; duration_minutes: number; price: number | null; notes: string }
+  ) {
+    const freqDays = getFrequencyDays(frequency)
+    const baseDate = new Date(base.scheduled_datetime)
+    const cutoff = new Date(baseDate)
+    cutoff.setFullYear(cutoff.getFullYear() + 1)
+
+    const batch: object[] = []
+    let next = new Date(baseDate)
+    next.setDate(next.getDate() + freqDays)
+    while (next <= cutoff) {
+      batch.push({
+        groomer_id: groomerId,
+        client_id: base.client_id,
+        pet_id: base.pet_id,
+        service_type: base.service_type,
+        scheduled_datetime: next.toISOString(),
+        duration_minutes: base.duration_minutes,
+        price: base.price,
+        notes: base.notes,
+        is_recurring: true,
+        recurring_frequency: frequency,
+        recurring_series_id: seriesId,
+      })
+      next = new Date(next)
+      next.setDate(next.getDate() + freqDays)
+    }
+    if (batch.length > 0) {
+      await supabase.from('appointments').insert(batch)
+      toast.success(`🔄 Series created — ${batch.length + 1} appointments over 12 months`)
+      fetchData()
     }
   }
 
@@ -418,9 +506,130 @@ export default function CalendarPage() {
     setPaymentMethod('cash')
     setDepositAmount('')
     setPaymentNote('')
+
+    // Determine Schedule Next state before closing detail dialog
+    const completedAppt = selectedAppointment
     handleCloseDetailDialog()
     fetchData()
     setSavingPayment(false)
+
+    if (completedAppt?.recurring_series_id) {
+      // Find the next upcoming appointment in the series
+      const { data: upcoming } = await supabase
+        .from('appointments')
+        .select('*, client:clients(*), pet:pets(*)')
+        .eq('recurring_series_id', completedAppt.recurring_series_id)
+        .eq('status', 'scheduled')
+        .gt('scheduled_datetime', new Date().toISOString())
+        .order('scheduled_datetime')
+        .limit(1)
+      if (upcoming && upcoming.length > 0) {
+        setNextSeriesAppt(upcoming[0] as Appointment)
+        setScheduleNextIsRecurring(true)
+        setShowScheduleNext(true)
+      }
+    } else if (completedAppt) {
+      // Non-recurring: suggest scheduling a follow-up
+      const suggested = new Date(completedAppt.scheduled_datetime)
+      suggested.setDate(suggested.getDate() + 28)
+      const pad = (n: number) => String(n).padStart(2, '0')
+      setScheduleNextDate(
+        `${suggested.getFullYear()}-${pad(suggested.getMonth() + 1)}-${pad(suggested.getDate())}T${pad(new Date(completedAppt.scheduled_datetime).getHours())}:${pad(new Date(completedAppt.scheduled_datetime).getMinutes())}`
+      )
+      setCompletedApptRef({
+        client_id: completedAppt.client_id,
+        pet_id: completedAppt.pet_id,
+        service_type: completedAppt.service_type,
+        duration_minutes: completedAppt.duration_minutes,
+        price: completedAppt.price != null ? String(completedAppt.price) : '',
+      })
+      setScheduleNextIsRecurring(false)
+      setShowScheduleNext(true)
+    }
+  }
+
+  async function handleSkipNextAppt() {
+    if (scheduleNextIsRecurring && nextSeriesAppt) {
+      await supabase.from('appointments').update({ status: 'cancelled' }).eq('id', nextSeriesAppt.id)
+      fetchData()
+      toast.success('Next appointment skipped')
+    }
+    setShowScheduleNext(false)
+    setNextSeriesAppt(null)
+    setCompletedApptRef(null)
+  }
+
+  async function handleScheduleOneOff() {
+    if (!completedApptRef || !scheduleNextDate) return
+    setSavingScheduleNext(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSavingScheduleNext(false); return }
+    const { data: newAppt, error } = await supabase.from('appointments').insert({
+      groomer_id: user.id,
+      client_id: completedApptRef.client_id,
+      pet_id: completedApptRef.pet_id,
+      service_type: completedApptRef.service_type,
+      scheduled_datetime: new Date(scheduleNextDate).toISOString(),
+      duration_minutes: completedApptRef.duration_minutes,
+      price: completedApptRef.price ? parseFloat(completedApptRef.price) : null,
+    }).select('id').single()
+    if (error) { toast.error(error.message); setSavingScheduleNext(false); return }
+    toast.success('Next appointment scheduled!')
+    if (newAppt?.id) {
+      scheduleReminders(newAppt.id, user.id).catch(() => {})
+      fetch('/api/appointments/confirm', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appointmentId: newAppt.id, groomerId: user.id }),
+      }).catch(() => {})
+    }
+    fetchData()
+    setSavingScheduleNext(false)
+    setShowScheduleNext(false)
+    setCompletedApptRef(null)
+  }
+
+  async function handlePauseSeries(seriesId: string) {
+    if (!confirm('Cancel all future appointments in this series?')) return
+    await supabase.from('appointments')
+      .update({ status: 'cancelled' })
+      .eq('recurring_series_id', seriesId)
+      .eq('status', 'scheduled')
+      .gt('scheduled_datetime', new Date().toISOString())
+    toast.success('Series paused — future appointments cancelled')
+    handleCloseDetailDialog()
+    fetchData()
+  }
+
+  async function handleEndSeries(seriesId: string) {
+    if (!confirm('End this recurring series? All future appointments will be cancelled and removed from the series.')) return
+    await supabase.from('appointments')
+      .update({ status: 'cancelled', recurring_series_id: null, is_recurring: false })
+      .eq('recurring_series_id', seriesId)
+      .eq('status', 'scheduled')
+      .gt('scheduled_datetime', new Date().toISOString())
+    toast.success('Series ended')
+    handleCloseDetailDialog()
+    fetchData()
+  }
+
+  async function handleEditSeries() {
+    if (!selectedAppointment?.recurring_series_id) return
+    setSavingSeriesEdit(true)
+    const { error } = await supabase.from('appointments')
+      .update({
+        service_type: editSeriesForm.service_type,
+        duration_minutes: editSeriesForm.duration_minutes,
+        price: editSeriesForm.price ? parseFloat(editSeriesForm.price) : null,
+        notes: editSeriesForm.notes || null,
+      })
+      .eq('recurring_series_id', selectedAppointment.recurring_series_id)
+      .eq('status', 'scheduled')
+      .gt('scheduled_datetime', new Date().toISOString())
+    if (error) { toast.error(error.message); setSavingSeriesEdit(false); return }
+    toast.success('All future appointments updated!')
+    setShowEditSeries(false)
+    setSavingSeriesEdit(false)
+    fetchData()
   }
 
   // ---- Navigation ----
@@ -688,10 +897,11 @@ export default function CalendarPage() {
                             <div className={cn('w-2 h-2 rounded-full flex-shrink-0 mt-0.5', getApptDotColor(appt))} />
                             <div className="min-w-0">
                               <div className={cn(
-                                'text-xs font-medium leading-tight',
+                                'text-xs font-medium leading-tight flex items-center gap-0.5',
                                 appt.status === 'cancelled' ? 'text-slate-600 line-through' : 'text-slate-300'
                               )}>
                                 {new Date(appt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                {appt.is_recurring && <span className="text-xs leading-none">🔄</span>}
                               </div>
                               <div className={cn(
                                 'text-xs truncate leading-tight',
@@ -752,6 +962,7 @@ export default function CalendarPage() {
                             </span>
                             <span className="text-white font-medium">{appt.pet?.name}</span>
                             {appt.pet?.breed && <span className="text-slate-500 text-xs">{appt.pet.breed}</span>}
+                            {appt.is_recurring && <span className="text-xs text-emerald-500" title="Recurring appointment">🔄</span>}
                             {isCompleted && <span className="text-emerald-400 text-xs">✓ completed</span>}
                             {isCancelled && <span className="text-slate-500 text-xs line-through">cancelled</span>}
                             {isCompleted && <PaymentBadge status={appt.payment_status} />}
@@ -990,11 +1201,11 @@ export default function CalendarPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="bath">🔵 Bath</SelectItem>
-                  <SelectItem value="groom">🟢 Groom</SelectItem>
-                  <SelectItem value="deluxe">🟠 Deluxe</SelectItem>
-                  <SelectItem value="nail_trim">🟣 Nail Trim</SelectItem>
-                  <SelectItem value="other">⚪ Other</SelectItem>
+                  <SelectItem value="bath" className="text-white focus:bg-slate-700 focus:text-white">🔵 Bath</SelectItem>
+                  <SelectItem value="groom" className="text-white focus:bg-slate-700 focus:text-white">🟢 Groom</SelectItem>
+                  <SelectItem value="deluxe" className="text-white focus:bg-slate-700 focus:text-white">🟠 Deluxe</SelectItem>
+                  <SelectItem value="nail_trim" className="text-white focus:bg-slate-700 focus:text-white">🟣 Nail Trim</SelectItem>
+                  <SelectItem value="other" className="text-white focus:bg-slate-700 focus:text-white">⚪ Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1041,6 +1252,42 @@ export default function CalendarPage() {
               />
             </div>
 
+            {!editingAppointmentId && (
+              <div className="border-t border-slate-800 pt-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-slate-300 text-sm font-medium">Make Recurring</p>
+                    <p className="text-slate-500 text-xs">Auto-schedules next 12 months</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setForm(f => ({ ...f, is_recurring: !f.is_recurring }))}
+                    className={cn(
+                      'relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0',
+                      form.is_recurring ? 'bg-emerald-600' : 'bg-slate-600'
+                    )}
+                  >
+                    <span className={cn(
+                      'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                      form.is_recurring ? 'translate-x-6' : 'translate-x-1'
+                    )} />
+                  </button>
+                </div>
+                {form.is_recurring && (
+                  <Select value={form.recurring_frequency} onValueChange={v => setForm(f => ({ ...f, recurring_frequency: v }))}>
+                    <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-600">
+                      {Object.entries(FREQUENCY_LABELS).map(([val, label]) => (
+                        <SelectItem key={val} value={val} className="text-white focus:bg-slate-700 focus:text-white">{label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-3 pt-2">
               <Button
                 onClick={handleCloseAddDialog}
@@ -1053,7 +1300,7 @@ export default function CalendarPage() {
                 disabled={saving || !form.client_id || !form.pet_id || !form.scheduled_datetime}
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
-                {saving ? 'Saving...' : editingAppointmentId ? 'Update Appointment' : 'Schedule'}
+                {saving ? 'Saving...' : editingAppointmentId ? 'Update Appointment' : form.is_recurring ? '🔄 Schedule Recurring' : 'Schedule'}
               </Button>
             </div>
           </div>
@@ -1237,6 +1484,40 @@ export default function CalendarPage() {
                     {cancelling ? 'Cancelling...' : 'Cancel Appointment'}
                   </Button>
                 </div>
+
+                {appt.is_recurring && appt.recurring_series_id && (
+                  <div className="border-t border-slate-800 pt-3 space-y-2">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">🔄 Recurring Series</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        onClick={() => {
+                          setEditSeriesForm({
+                            service_type: appt.service_type,
+                            duration_minutes: appt.duration_minutes,
+                            price: appt.price != null ? String(appt.price) : '',
+                            notes: appt.notes ?? '',
+                          })
+                          setShowEditSeries(true)
+                        }}
+                        className="flex-1 bg-slate-700 hover:bg-slate-600 text-white text-sm"
+                      >
+                        Edit Series
+                      </Button>
+                      <Button
+                        onClick={() => handlePauseSeries(appt.recurring_series_id!)}
+                        className="flex-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
+                      >
+                        Pause Series
+                      </Button>
+                      <Button
+                        onClick={() => handleEndSeries(appt.recurring_series_id!)}
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm"
+                      >
+                        End Series
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })()}
@@ -1356,6 +1637,111 @@ export default function CalendarPage() {
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {savingPayment ? 'Saving...' : 'Save Payment'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Next Dialog — shown after marking complete */}
+      <Dialog open={showScheduleNext} onOpenChange={open => { if (!open) { setShowScheduleNext(false); setNextSeriesAppt(null); setCompletedApptRef(null) } }}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              {scheduleNextIsRecurring ? '🔄 Next Recurring Appointment' : '📅 Schedule Next Visit?'}
+            </DialogTitle>
+          </DialogHeader>
+          {scheduleNextIsRecurring && nextSeriesAppt ? (
+            <div className="space-y-4">
+              <div className="bg-slate-800 border border-slate-700 rounded-lg p-4">
+                <p className="text-slate-400 text-xs uppercase tracking-wide mb-1">Next appointment</p>
+                <p className="text-white font-medium">
+                  {new Date(nextSeriesAppt.scheduled_datetime).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                </p>
+                <p className="text-slate-400 text-sm">
+                  {new Date(nextSeriesAppt.scheduled_datetime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  {nextSeriesAppt.pet && ` · ${nextSeriesAppt.pet.name}`}
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={handleSkipNextAppt} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300">
+                  Skip This One
+                </Button>
+                <Button onClick={() => { setShowScheduleNext(false); setNextSeriesAppt(null) }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+                  Confirmed ✓
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-slate-400 text-sm">Would you like to schedule their next appointment?</p>
+              <div className="space-y-1">
+                <Label className="text-slate-300">Date & Time</Label>
+                <Input
+                  type="datetime-local"
+                  value={scheduleNextDate}
+                  onChange={e => setScheduleNextDate(e.target.value)}
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+              <div className="flex gap-3">
+                <Button onClick={() => { setShowScheduleNext(false); setCompletedApptRef(null) }} className="flex-1 bg-slate-700 hover:bg-slate-600 text-slate-300">
+                  Skip
+                </Button>
+                <Button
+                  onClick={handleScheduleOneOff}
+                  disabled={savingScheduleNext || !scheduleNextDate}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {savingScheduleNext ? 'Scheduling...' : 'Schedule'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Series Dialog */}
+      <Dialog open={showEditSeries} onOpenChange={open => { if (!open) setShowEditSeries(false) }}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              🔄 Edit Recurring Series
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-400 text-sm -mt-2">Updates all future scheduled appointments in this series.</p>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-slate-300">Service</Label>
+              <Select value={editSeriesForm.service_type} onValueChange={v => setEditSeriesForm(f => ({ ...f, service_type: v }))}>
+                <SelectTrigger className="bg-slate-800 border-slate-600 text-white"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-600">
+                  <SelectItem value="bath" className="text-white focus:bg-slate-700 focus:text-white">🔵 Bath</SelectItem>
+                  <SelectItem value="groom" className="text-white focus:bg-slate-700 focus:text-white">🟢 Groom</SelectItem>
+                  <SelectItem value="deluxe" className="text-white focus:bg-slate-700 focus:text-white">🟠 Deluxe</SelectItem>
+                  <SelectItem value="nail_trim" className="text-white focus:bg-slate-700 focus:text-white">🟣 Nail Trim</SelectItem>
+                  <SelectItem value="other" className="text-white focus:bg-slate-700 focus:text-white">⚪ Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-slate-300">Duration (min)</Label>
+                <Input type="number" value={editSeriesForm.duration_minutes} onChange={e => setEditSeriesForm(f => ({ ...f, duration_minutes: parseInt(e.target.value) }))} className="bg-slate-800 border-slate-600 text-white" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-slate-300">Price ($)</Label>
+                <Input type="number" value={editSeriesForm.price} onChange={e => setEditSeriesForm(f => ({ ...f, price: e.target.value }))} placeholder="0.00" className="bg-slate-800 border-slate-600 text-white" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300">Notes</Label>
+              <Textarea value={editSeriesForm.notes} onChange={e => setEditSeriesForm(f => ({ ...f, notes: e.target.value }))} className="bg-slate-800 border-slate-600 text-white resize-none" rows={2} />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button onClick={() => setShowEditSeries(false)} className="flex-1 bg-red-600 hover:bg-red-700 text-white">Cancel</Button>
+              <Button onClick={handleEditSeries} disabled={savingSeriesEdit} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+                {savingSeriesEdit ? 'Saving...' : 'Update Series'}
               </Button>
             </div>
           </div>
