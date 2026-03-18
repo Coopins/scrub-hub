@@ -59,7 +59,7 @@ export default function ProfilePage() {
         setBusinessName(data.business_name ?? '')
         setFirstName(data.first_name ?? '')
         setLastName(data.last_name ?? '')
-        setPhone(data.phone ?? '')
+        setPhone(formatPhone(data.phone ?? ''))
         setEmail(data.email ?? user.email ?? '')
         setAddress(data.address ?? '')
         setTimezone(data.timezone ?? 'America/New_York')
@@ -108,7 +108,7 @@ export default function ProfilePage() {
       <div className="space-y-6 max-w-2xl">
         <div>
           <h1 className="text-2xl font-bold text-white">Profile</h1>
-          <p className="text-slate-400">Your business and contact information</p>
+          <p className="text-slate-400">How clients and reminders will reach you</p>
         </div>
         <div className="py-12 text-center text-slate-500 text-sm">Loading…</div>
       </div>
@@ -119,7 +119,7 @@ export default function ProfilePage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold text-white">Profile</h1>
-        <p className="text-slate-400">Your business and contact information</p>
+        <p className="text-slate-400">How clients and reminders will reach you</p>
       </div>
 
       {/* Business Info */}
