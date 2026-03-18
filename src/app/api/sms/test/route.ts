@@ -26,6 +26,9 @@ export async function POST() {
     )
   }
 
+  const digits = profile.phone.replace(/\D/g, '')
+  const toNumber = digits.length === 10 ? `+1${digits}` : digits.length === 11 && digits.startsWith('1') ? `+${digits}` : digits
+
   const serviceClient = createServiceClient()
   const twilioClient = twilio(
     process.env.TWILIO_ACCOUNT_SID,
@@ -38,7 +41,7 @@ export async function POST() {
     await twilioClient.messages.create({
       body: message,
       from: process.env.TWILIO_PHONE_NUMBER!,
-      to: profile.phone,
+      to: toNumber,
     })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Twilio error'

@@ -16,12 +16,6 @@ const US_TIMEZONES = [
   { value: 'Pacific/Honolulu',    label: 'Hawaii Time (HT)' },
 ]
 
-function formatPhone(raw: string): string {
-  const digits = raw.replace(/\D/g, '').slice(0, 10)
-  if (digits.length <= 3) return digits
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
-}
 
 const inputClass =
   'w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors'
@@ -57,7 +51,7 @@ export default function ProfilePage() {
         setBusinessName(data.business_name ?? '')
         setFirstName(data.first_name ?? '')
         setLastName(data.last_name ?? '')
-        setPhone(data.phone ? formatPhone(data.phone) : '')
+        setPhone(data.phone ?? '')
         setEmail(data.email ?? user.email ?? '')
         setAddress(data.address ?? '')
         setTimezone(data.timezone ?? 'America/New_York')
@@ -77,8 +71,7 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setSaving(false); return }
 
-    const rawPhone = phone.replace(/\D/g, '')
-    const phoneE164 = rawPhone.length === 10 ? `+1${rawPhone}` : rawPhone.length === 11 && rawPhone.startsWith('1') ? `+${rawPhone}` : rawPhone || null
+    const digits = phone.replace(/\D/g, '') || null
 
     const { error } = await supabase
       .from('groomer_profiles')
@@ -88,7 +81,7 @@ export default function ProfilePage() {
         business_name: businessName,
         first_name: firstName || null,
         last_name: lastName || null,
-        phone: phoneE164,
+        phone: digits,
         address: address || null,
         timezone,
       })
@@ -210,7 +203,7 @@ export default function ProfilePage() {
             <input
               type="tel"
               value={phone}
-              onChange={e => setPhone(formatPhone(e.target.value))}
+              onChange={e => setPhone(e.target.value)}
               placeholder="(555) 555-5555"
               className={inputClass}
             />
