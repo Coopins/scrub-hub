@@ -117,7 +117,7 @@ export default function CalendarPage() {
   const [showNewClientModal, setShowNewClientModal] = useState(false)
   const [newClientForm, setNewClientForm] = useState(BLANK_NEW_CLIENT)
   const [savingClient, setSavingClient] = useState(false)
-  const [showNewPetForm, setShowNewPetForm] = useState(false)
+  const [showNewPetModal, setShowNewPetModal] = useState(false)
   const [newPetForm, setNewPetForm] = useState(BLANK_NEW_PET)
   const [savingPet, setSavingPet] = useState(false)
   const [selectedApptNotifications, setSelectedApptNotifications] = useState<Notification[]>([])
@@ -196,7 +196,7 @@ export default function CalendarPage() {
 
   function handleClientChange(clientId: string) {
     setForm({ ...form, client_id: clientId, pet_id: '' })
-    setShowNewPetForm(false)
+    setShowNewPetModal(false)
     setNewPetForm(BLANK_NEW_PET)
     fetchPetsForClient(clientId)
   }
@@ -214,7 +214,7 @@ export default function CalendarPage() {
     toast.success(`${newPetForm.name} added!`)
     setClientPets(prev => [...prev, newPet])
     setForm(f => ({ ...f, pet_id: newPet.id }))
-    setShowNewPetForm(false)
+    setShowNewPetModal(false)
     setNewPetForm(BLANK_NEW_PET)
     setSavingPet(false)
   }
@@ -271,7 +271,7 @@ export default function CalendarPage() {
     setClientPets([])
     setShowNewClientModal(false)
     setNewClientForm(BLANK_NEW_CLIENT)
-    setShowNewPetForm(false)
+    setShowNewPetModal(false)
     setNewPetForm(BLANK_NEW_PET)
   }
 
@@ -1039,90 +1039,38 @@ export default function CalendarPage() {
               <div className="space-y-1">
                 <Label className="text-slate-300">Pet *</Label>
                 {clientPets.length > 0 ? (
-                  <Select value={form.pet_id} onValueChange={v => setForm({ ...form, pet_id: v })}>
+                  <Select value={form.pet_id} onValueChange={val => {
+                    if (val === '__new_pet__') {
+                      setNewPetForm(BLANK_NEW_PET)
+                      setShowNewPetModal(true)
+                    } else {
+                      setForm({ ...form, pet_id: val })
+                    }
+                  }}>
                     <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
                       <SelectValue placeholder="Select pet..." />
                     </SelectTrigger>
                     <SelectContent className="bg-slate-800 border-slate-600">
                       {clientPets.map(p => (
-                        <SelectItem key={p.id} value={p.id}>
+                        <SelectItem key={p.id} value={p.id} className="text-white focus:bg-slate-700 focus:text-white">
                           {p.name} ({p.breed ?? p.species})
                         </SelectItem>
                       ))}
+                      <SelectItem value="__new_pet__" className="text-emerald-400 focus:bg-slate-700 focus:text-emerald-300 border-t border-slate-700 mt-1">
+                        + New Pet
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div>
-                    <div className="text-sm text-slate-400 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 flex items-center justify-between">
-                      <span>No pets found</span>
-                      <button
-                        type="button"
-                        onClick={() => setShowNewPetForm(v => !v)}
-                        className={cn(
-                          'flex items-center gap-1 text-xs px-2 py-1 rounded border whitespace-nowrap transition-colors',
-                          showNewPetForm
-                            ? 'border-red-600 bg-red-600 text-white hover:bg-red-700'
-                            : 'border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700'
-                        )}
-                      >
-                        {showNewPetForm ? <><X className="w-3 h-3" /> Cancel</> : <><Plus className="w-3 h-3" /> Add Pet</>}
-                      </button>
-                    </div>
-                    {showNewPetForm && (
-                      <div className="mt-2 bg-slate-800/50 border border-slate-700 rounded-lg p-3 space-y-3">
-                        <p className="text-xs font-medium text-slate-400">New Pet</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="space-y-1">
-                            <Label className="text-slate-400 text-xs">Name *</Label>
-                            <Input
-                              value={newPetForm.name}
-                              onChange={e => setNewPetForm({ ...newPetForm, name: e.target.value })}
-                              placeholder="Buddy"
-                              className="bg-slate-800 border-slate-600 text-white h-8 text-sm"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-slate-400 text-xs">Species</Label>
-                            <Select value={newPetForm.species} onValueChange={v => setNewPetForm({ ...newPetForm, species: v })}>
-                              <SelectTrigger className="bg-slate-800 border-slate-600 text-white h-8 text-sm">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent className="bg-slate-800 border-slate-600">
-                                <SelectItem value="dog">🐕 Dog</SelectItem>
-                                <SelectItem value="cat">🐈 Cat</SelectItem>
-                                <SelectItem value="other">Other</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-slate-400 text-xs">Breed</Label>
-                          <Input
-                            value={newPetForm.breed}
-                            onChange={e => setNewPetForm({ ...newPetForm, breed: e.target.value })}
-                            placeholder="Golden Retriever"
-                            className="bg-slate-800 border-slate-600 text-white h-8 text-sm"
-                          />
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <Button
-                            type="button"
-                            onClick={() => { setShowNewPetForm(false); setNewPetForm(BLANK_NEW_PET) }}
-                            className="flex-1 h-8 text-sm bg-red-600 hover:bg-red-700 text-white"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            onClick={handleSaveNewPet}
-                            disabled={savingPet || !newPetForm.name}
-                            className="flex-1 h-8 text-sm bg-emerald-600 hover:bg-emerald-700 text-white"
-                          >
-                            {savingPet ? 'Saving...' : 'Save Pet'}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                  <div className="text-sm text-slate-400 bg-slate-800 border border-slate-600 rounded-md px-3 py-2 flex items-center justify-between">
+                    <span>No pets found</span>
+                    <button
+                      type="button"
+                      onClick={() => { setNewPetForm(BLANK_NEW_PET); setShowNewPetModal(true) }}
+                      className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700 whitespace-nowrap transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> Add Pet
+                    </button>
                   </div>
                 )}
               </div>
@@ -1301,6 +1249,65 @@ export default function CalendarPage() {
                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {savingClient ? 'Saving...' : 'Save Client'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Pet Modal */}
+      <Dialog open={showNewPetModal} onOpenChange={open => { if (!open) { setShowNewPetModal(false); setNewPetForm(BLANK_NEW_PET) } }}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-white">New Pet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <Label className="text-slate-300 text-xs">Name *</Label>
+                <Input
+                  value={newPetForm.name}
+                  onChange={e => setNewPetForm({ ...newPetForm, name: e.target.value })}
+                  placeholder="Buddy"
+                  className="bg-slate-800 border-slate-600 text-white"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-slate-300 text-xs">Species</Label>
+                <Select value={newPetForm.species} onValueChange={v => setNewPetForm({ ...newPetForm, species: v })}>
+                  <SelectTrigger className="bg-slate-800 border-slate-600 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    <SelectItem value="dog" className="text-white focus:bg-slate-700 focus:text-white">🐕 Dog</SelectItem>
+                    <SelectItem value="cat" className="text-white focus:bg-slate-700 focus:text-white">🐈 Cat</SelectItem>
+                    <SelectItem value="other" className="text-white focus:bg-slate-700 focus:text-white">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-slate-300 text-xs">Breed</Label>
+              <Input
+                value={newPetForm.breed}
+                onChange={e => setNewPetForm({ ...newPetForm, breed: e.target.value })}
+                placeholder="Golden Retriever"
+                className="bg-slate-800 border-slate-600 text-white"
+              />
+            </div>
+            <div className="flex gap-3 pt-1">
+              <Button
+                onClick={() => { setShowNewPetModal(false); setNewPetForm(BLANK_NEW_PET) }}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveNewPet}
+                disabled={savingPet || !newPetForm.name}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {savingPet ? 'Saving...' : 'Save Pet'}
               </Button>
             </div>
           </div>
