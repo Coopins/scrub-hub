@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Bell, MessageSquare } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Bell, MessageSquare, Lock, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { type ReminderPreferences, DEFAULT_PREFERENCES } from '@/lib/scheduleReminders'
 
@@ -43,15 +45,21 @@ function Toggle({ on, disabled }: { on: boolean; disabled: boolean }) {
 
 export default function SettingsPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [prefs, setPrefs] = useState<ReminderPreferences>(DEFAULT_PREFERENCES)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [testingSms, setTestingSms] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
+  const [sendingReset, setSendingReset] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+      setUserEmail(user.email ?? '')
       const { data } = await supabase
         .from('groomer_profiles')
         .select('reminder_preferences')
@@ -104,6 +112,36 @@ export default function SettingsPage() {
     setSaving(false)
   }
 
+  async function handleChangePassword() {
+    if (!userEmail) return
+    setSendingReset(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(userEmail)
+    if (error) {
+      toast.error('Failed to send reset email — please try again')
+    } else {
+      toast.success(`Password reset link sent to ${userEmail}.`)
+    }
+    setSendingReset(false)
+  }
+
+  async function handleDeleteAccount() {
+    setDeletingAccount(true)
+    try {
+      const res = await fetch('/api/account/delete', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error ?? 'Failed to delete account')
+        setDeletingAccount(false)
+        return
+      }
+      await supabase.auth.signOut()
+      router.push('/login')
+    } catch {
+      toast.error('Failed to delete account')
+      setDeletingAccount(false)
+    }
+  }
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
@@ -111,6 +149,7 @@ export default function SettingsPage() {
         <p className="text-slate-400">Configure your grooming salon preferences</p>
       </div>
 
+      {/* SMS Reminders */}
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -163,6 +202,31 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Security */}
+      <Card className="bg-slate-900 border-slate-800">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Lock className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+            <CardTitle className="text-white">Security</CardTitle>
+          </div>
+          <p className="text-slate-400 text-sm mt-1">
+            Manage your account password and authentication settings.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={handleChangePassword}
+            disabled={sendingReset}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Lock className="w-4 h-4" />
+            {sendingReset ? 'Sending…' : 'Change Password'}
+          </button>
+        </CardContent>
+      </Card>
+
+      {/* Test SMS */}
       <Card className="bg-slate-900 border-slate-800">
         <CardHeader>
           <div className="flex items-center gap-2">
@@ -185,6 +249,62 @@ export default function SettingsPage() {
           </button>
         </CardContent>
       </Card>
+
+      {/* Danger Zone */}
+      <Card className="bg-slate-900 border-red-800/60">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Trash2 className="w-5 h-5 text-red-500 flex-shrink-0" />
+            <CardTitle className="text-red-400">Danger Zone</CardTitle>
+          </div>
+          <p className="text-slate-400 text-sm mt-1">
+            Permanent, irreversible actions. Please read carefully before proceeding.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <button
+            type="button"
+            onClick={() => setShowDeleteDialog(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-sm font-medium transition-colors"
+          >
+            <Trash2 className="w-4 h-4" />
+            Delete Account
+          </button>
+        </CardContent>
+      </Card>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-white flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-400" />
+              Delete Account
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-slate-300 text-sm leading-relaxed">
+            This will permanently delete your account and all associated data. This cannot be undone.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={deletingAccount}
+              className="flex-1 px-4 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              disabled={deletingAccount}
+              className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {deletingAccount ? 'Deleting…' : 'Yes, Delete My Account'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
