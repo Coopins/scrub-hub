@@ -731,7 +731,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 flex-wrap">
+      <div className="flex flex-wrap gap-x-3 gap-y-2">
         {Object.entries(SERVICE_COLORS).map(([type, colors]) => (
           <div key={type} className="flex items-center gap-1.5">
             <div className={`w-2.5 h-2.5 rounded-full ${colors.dot}`} />
@@ -858,7 +858,7 @@ export default function CalendarPage() {
 
           {/* ---- WEEK VIEW: compact time + name ---- */}
           {view === 'week' && (
-            <div className="overflow-x-auto touch-pan-x">
+            <div className="overflow-x-auto touch-pan-x bg-slate-900 rounded-lg">
               <div className="min-w-[770px]">
                 {/* Day headers — click to navigate to day view */}
                 <div className="grid grid-cols-7 gap-px mb-px">
