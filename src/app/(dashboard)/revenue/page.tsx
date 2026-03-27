@@ -143,7 +143,7 @@ export default function RevenuePage() {
   const statCards = [
     { label: 'Today',      value: todayTotal,  alwaysShow: false },
     { label: 'This Week',  value: weekTotal,   alwaysShow: false },
-    { label: monthLabel,   value: monthTotal,  alwaysShow: true  },
+    { label: monthLabel,   value: monthTotal,  alwaysShow: false },
   ]
 
   return (
