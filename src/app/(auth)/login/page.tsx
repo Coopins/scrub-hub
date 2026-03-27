@@ -14,8 +14,24 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetSending, setResetSending] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      toast.error('Please enter your email address first.')
+      return
+    }
+    setResetSending(true)
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim())
+    if (error) {
+      toast.error(error.message)
+    } else {
+      toast.success('Password reset link sent — check your email.')
+    }
+    setResetSending(false)
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -52,6 +68,14 @@ export default function LoginPage() {
             <Input id="password" type="password" placeholder="••••••••" value={password}
               onChange={(e) => setPassword(e.target.value)} required
               className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500" />
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={resetSending}
+              className="text-xs text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
+            >
+              {resetSending ? 'Sending…' : 'Forgot your password?'}
+            </button>
           </div>
           <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}

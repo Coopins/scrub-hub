@@ -718,7 +718,7 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Calendar</h1>
-          <p className="text-slate-400">Manage your appointments</p>
+          <p className="text-slate-400">Your schedule at a glance</p>
         </div>
         {/* Desktop: button in header. Mobile: replaced by FAB below */}
         <Button
@@ -840,7 +840,7 @@ export default function CalendarPage() {
                             className="p-2 cursor-pointer flex-shrink-0 touch-manipulation"
                           >
                             <div className={cn(
-                              'w-2 h-2 rounded-full hover:scale-125 transition-transform',
+                              'w-2.5 h-2.5 rounded-full hover:scale-125 transition-transform',
                               getApptDotColor(appt)
                             )} />
                           </div>
