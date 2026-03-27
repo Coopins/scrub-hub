@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Phone, Mail, MapPin, Edit, Dog, AlertTriangle, MessageSquareOff, DollarSign, Trash2, Calendar, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Plus, Phone, Mail, MapPin, Edit, Dog, AlertTriangle, MessageSquareOff, DollarSign, Trash2, Calendar, CheckCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 import { scheduleReminders } from '@/lib/scheduleReminders'
 
@@ -181,6 +181,15 @@ export default function ClientDetailPage() {
   const [showSmartPopup, setShowSmartPopup] = useState(false)
   const [isDNBClient, setIsDNBClient] = useState(false)
   const [popupWarnings, setPopupWarnings] = useState<{ text: string; className: string }[]>([])
+  const [showAllPast, setShowAllPast] = useState(false)
+  const [showUpcoming, setShowUpcoming] = useState(false)
+
+  function formatPhone(raw: string): string {
+    const digits = raw.replace(/\D/g, '')
+    const local = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits
+    if (local.length !== 10) return raw
+    return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`
+  }
 
   async function fetchAll() {
     const { data: clientData } = await supabase
@@ -206,7 +215,7 @@ export default function ClientDetailPage() {
     const { data: apptData } = await supabase
       .from('appointments').select('*, pet:pets(*)')
       .eq('client_id', clientId)
-      .order('scheduled_datetime', { ascending: false }).limit(10)
+      .order('scheduled_datetime', { ascending: false })
     setAppointments(apptData ?? [])
     setLoading(false)
   }
@@ -404,7 +413,7 @@ export default function ClientDetailPage() {
             <CardHeader><CardTitle className="text-white text-sm">Contact Info</CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2 text-slate-300">
-                <Phone className="w-4 h-4 text-slate-500" /><span>{client.phone}</span>
+                <Phone className="w-4 h-4 text-slate-500" /><span>{formatPhone(client.phone)}</span>
               </div>
               {client.email && (
                 <div className="flex items-center gap-2 text-slate-300">
@@ -524,32 +533,80 @@ export default function ClientDetailPage() {
                   <button onClick={() => setShowNoPetsNotice(false)} className="text-slate-500 hover:text-slate-300 text-lg leading-none flex-shrink-0">×</button>
                 </div>
               )}
-              {appointments.length === 0 ? (
-                <p className="text-slate-500 text-sm text-center py-4">No appointments yet</p>
-              ) : (
-                <div className="space-y-2">
-                  {appointments.map(appt => (
-                    <div key={appt.id} className="flex items-center gap-3 p-4 md:p-3 rounded-lg bg-slate-800 border border-slate-700 min-h-[60px]">
-                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${serviceColors[appt.service_type] ?? 'bg-slate-500'}`} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm">
-                          {appt.pet?.name} — <span className="capitalize">{appt.service_type.replace('_', ' ')}</span>
-                        </p>
-                        <p className="text-slate-400 text-xs">
-                          {new Date(appt.scheduled_datetime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
-                        {appt.service_notes && <p className="text-slate-300 text-xs mt-1 italic">"{appt.service_notes}"</p>}
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <span className={`text-xs px-2 py-1 rounded ${appt.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : appt.status === 'no_show' ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-400'}`}>
-                          {appt.status}
-                        </span>
-                        {appt.price && <p className="text-emerald-400 text-sm mt-1">${appt.price}</p>}
-                      </div>
+              {(() => {
+                const now = new Date()
+                const past = appointments
+                  .filter(a => new Date(a.scheduled_datetime) < now)
+                  // already sorted descending from query
+                const upcoming = appointments
+                  .filter(a => new Date(a.scheduled_datetime) >= now)
+                  .slice().reverse() // ascending: soonest first
+                const visiblePast = showAllPast ? past : past.slice(0, 10)
+
+                const apptRow = (appt: any) => (
+                  <div key={appt.id} className="flex items-center gap-3 p-4 md:p-3 rounded-lg bg-slate-800 border border-slate-700 min-h-[60px]">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${serviceColors[appt.service_type] ?? 'bg-slate-500'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-sm">
+                        {appt.pet?.name} — <span className="capitalize">{appt.service_type.replace('_', ' ')}</span>
+                      </p>
+                      <p className="text-slate-400 text-xs">
+                        {new Date(appt.scheduled_datetime).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                      </p>
+                      {appt.service_notes && <p className="text-slate-300 text-xs mt-1 italic">"{appt.service_notes}"</p>}
                     </div>
-                  ))}
-                </div>
-              )}
+                    <div className="text-right flex-shrink-0">
+                      <span className={`text-xs px-2 py-1 rounded ${appt.status === 'completed' ? 'bg-emerald-500/20 text-emerald-400' : appt.status === 'no_show' ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                        {appt.status}
+                      </span>
+                      {appt.price && <p className="text-emerald-400 text-sm mt-1">${appt.price}</p>}
+                    </div>
+                  </div>
+                )
+
+                if (appointments.length === 0) {
+                  return <p className="text-slate-500 text-sm text-center py-4">No appointments yet</p>
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {/* Past appointments */}
+                    {past.length === 0 ? (
+                      <p className="text-slate-500 text-sm text-center py-2">No past appointments</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {visiblePast.map(apptRow)}
+                        {past.length > 10 && (
+                          <button
+                            onClick={() => setShowAllPast(v => !v)}
+                            className="w-full text-xs text-slate-400 hover:text-white py-2 text-center transition-colors"
+                          >
+                            {showAllPast ? 'Show less' : `Show ${past.length - 10} more`}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Upcoming appointments */}
+                    {upcoming.length > 0 && (
+                      <div>
+                        <button
+                          onClick={() => setShowUpcoming(v => !v)}
+                          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors mb-2"
+                        >
+                          {showUpcoming ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                          Upcoming ({upcoming.length})
+                        </button>
+                        {showUpcoming && (
+                          <div className="space-y-2">
+                            {upcoming.map(apptRow)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
         </div>
