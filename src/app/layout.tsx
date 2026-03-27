@@ -16,8 +16,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
+    <html lang="en" className="bg-slate-950 min-h-screen">
+      <body className={`${inter.className} bg-slate-950 min-h-screen`}>
         {children}
         <Toaster />
       </body>
