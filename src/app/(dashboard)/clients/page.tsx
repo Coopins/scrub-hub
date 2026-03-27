@@ -52,7 +52,7 @@ export default function ClientsPage() {
 
     const { data } = await supabase
       .from('clients')
-      .select('*')
+      .select('*, pets(*)')
       .eq('groomer_id', user.id)
       .order('last_name')
 
@@ -117,20 +117,24 @@ export default function ClientsPage() {
     setSavingPet(false)
   }
 
-  const statusBadge = (status: Client['status']) => {
-    const map = {
-      active: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-      inactive: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-      do_not_book: 'bg-red-500/20 text-red-400 border-red-500/30',
-      deposit_required: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    }
-    const labels = {
-      active: 'Active',
-      inactive: 'Inactive',
-      do_not_book: 'DNB',
-      deposit_required: 'Deposit Required',
-    }
-    return <span className={`text-xs px-2 py-0.5 rounded-full border ${map[status]}`}>{labels[status]}</span>
+  function formatPhone(raw: string): string {
+    const digits = raw.replace(/\D/g, '')
+    // strip leading country code (1) if 11 digits
+    const local = digits.length === 11 && digits[0] === '1' ? digits.slice(1) : digits
+    if (local.length !== 10) return raw
+    return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`
+  }
+
+  function smartBadge(client: Client) {
+    if (client.status === 'do_not_book')
+      return <span className="text-xs px-2 py-0.5 rounded-full border bg-red-500/20 text-red-400 border-red-500/30">DNB</span>
+    if (client.deposit_required || client.status === 'deposit_required')
+      return <span className="text-xs px-2 py-0.5 rounded-full border bg-yellow-500/20 text-yellow-400 border-yellow-500/30">Deposit Req.</span>
+    if (client.no_text_messages)
+      return <span className="text-xs px-2 py-0.5 rounded-full border bg-slate-500/20 text-slate-400 border-slate-500/30">No Texts</span>
+    if (client.status === 'inactive')
+      return <span className="text-xs px-2 py-0.5 rounded-full border bg-slate-500/20 text-slate-400 border-slate-500/30">Inactive</span>
+    return <span className="text-xs px-2 py-0.5 rounded-full border bg-emerald-500/20 text-emerald-400 border-emerald-500/30">Active</span>
   }
 
   return (
@@ -179,7 +183,7 @@ export default function ClientsPage() {
                       <p className="text-white font-medium">
                         {client.first_name} {client.last_name}
                       </p>
-                      {statusBadge(client.status)}
+                      {smartBadge(client)}
                       {client.no_text_messages && (
                         <span title="No text messages">
                           <MessageSquareOff className="w-4 h-4 text-orange-400" />
@@ -204,7 +208,7 @@ export default function ClientsPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 mt-1">
                       <span className="text-slate-400 text-sm flex items-center gap-1 flex-shrink-0">
-                        <Phone className="w-3 h-3" /> {client.phone}
+                        <Phone className="w-3 h-3" /> {formatPhone(client.phone)}
                       </span>
                       {client.email && (
                         <span className="text-slate-400 text-sm flex items-center gap-1 min-w-0 truncate">
@@ -212,6 +216,11 @@ export default function ClientsPage() {
                         </span>
                       )}
                     </div>
+                    {client.pets && client.pets.length > 0 && (
+                      <p className="text-slate-500 text-xs mt-0.5">
+                        🐾 {client.pets.map(p => p.name).join(', ')}
+                      </p>
+                    )}
                   </div>
                   <ChevronRight className="w-4 h-4 text-slate-600 flex-shrink-0" />
                 </div>
