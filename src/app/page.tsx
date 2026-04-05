@@ -41,6 +41,10 @@ export default function LandingPage() {
         <Link href="/privacy" className="hover:text-slate-400 transition-colors">
           Privacy
         </Link>
+        <span>·</span>
+        <a href="mailto:chris@nullstate.co" className="hover:text-slate-400 transition-colors">
+          chris@nullstate.co
+        </a>
       </p>
     </div>
   )
