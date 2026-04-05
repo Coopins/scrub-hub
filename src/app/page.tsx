@@ -1,13 +1,39 @@
-import { redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import Link from 'next/link'
+import { Scissors } from 'lucide-react'
 
-export default async function Home() {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+export default function LandingPage() {
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center px-4">
+      <div className="text-center max-w-lg">
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <div className="bg-emerald-600 p-4 rounded-2xl shadow-lg">
+            <Scissors className="w-10 h-10 text-white" />
+          </div>
+        </div>
 
-  if (user) {
-    redirect('/dashboard')
-  } else {
-    redirect('/login')
-  }
+        {/* Wordmark */}
+        <h1 className="text-4xl font-bold text-white tracking-tight mb-3">Scrub Hub</h1>
+
+        {/* Tagline */}
+        <p className="text-slate-400 text-lg leading-relaxed mb-10">
+          Professional Grooming Software —{' '}
+          <span className="text-slate-300">Built by Groomers, for Groomers</span>
+        </p>
+
+        {/* CTA */}
+        <Link
+          href="/login"
+          className="inline-flex items-center justify-center px-8 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold text-base transition-colors"
+        >
+          Sign In
+        </Link>
+      </div>
+
+      {/* Footer */}
+      <p className="absolute bottom-6 text-slate-600 text-xs">
+        © {new Date().getFullYear()} Scrub Hub
+      </p>
+    </div>
+  )
 }
