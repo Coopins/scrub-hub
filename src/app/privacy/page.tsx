@@ -88,10 +88,10 @@ export default function PrivacyPage() {
             <p className="text-slate-300 leading-relaxed">
               Questions about this Privacy Policy? Reach us at{' '}
               <a
-                href="mailto:support@scrubhub.com"
+                href="mailto:chris@nullstate.co"
                 className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2"
               >
-                support@scrubhub.com
+                chris@nullstate.co
               </a>
             </p>
           </div>

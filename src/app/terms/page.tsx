@@ -42,10 +42,10 @@ export default function TermsPage() {
               share your password with others. You are responsible for all activity that occurs under
               your account. Notify us immediately at{' '}
               <a
-                href="mailto:support@scrubhub.com"
+                href="mailto:chris@nullstate.co"
                 className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2"
               >
-                support@scrubhub.com
+                chris@nullstate.co
               </a>{' '}
               if you believe your account has been compromised.
             </p>
@@ -95,10 +95,10 @@ export default function TermsPage() {
             <p className="text-slate-300 leading-relaxed">
               Questions about these Terms of Service? Reach us at{' '}
               <a
-                href="mailto:support@scrubhub.com"
+                href="mailto:chris@nullstate.co"
                 className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2"
               >
-                support@scrubhub.com
+                chris@nullstate.co
               </a>
             </p>
           </div>

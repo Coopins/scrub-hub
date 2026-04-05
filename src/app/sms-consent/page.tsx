@@ -30,10 +30,10 @@ export default function SmsConsentPage() {
             <p className="text-slate-400 text-sm">
               For support, contact us at{' '}
               <a
-                href="mailto:support@scrubhub.com"
+                href="mailto:chris@nullstate.co"
                 className="text-emerald-400 hover:text-emerald-300 underline underline-offset-2"
               >
-                support@scrubhub.com
+                chris@nullstate.co
               </a>
             </p>
           </div>
