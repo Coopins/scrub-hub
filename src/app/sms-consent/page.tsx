@@ -37,6 +37,24 @@ export default function SmsConsentPage() {
               </a>
             </p>
           </div>
+
+          <div className="border-t border-slate-700 pt-6">
+            <p className="text-slate-500 text-xs text-center">
+              <a
+                href="/privacy"
+                className="text-slate-400 hover:text-slate-300 underline underline-offset-2 transition-colors"
+              >
+                Privacy Policy
+              </a>
+              {' '}·{' '}
+              <a
+                href="/terms"
+                className="text-slate-400 hover:text-slate-300 underline underline-offset-2 transition-colors"
+              >
+                Terms of Service
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>

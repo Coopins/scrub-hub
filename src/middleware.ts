@@ -28,7 +28,11 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
   const isAuthPage   = pathname.startsWith('/login') || pathname.startsWith('/signup')
-  const isPublicPage = pathname === '/' || pathname.startsWith('/sms-consent')
+  const isPublicPage =
+    pathname === '/' ||
+    pathname.startsWith('/sms-consent') ||
+    pathname.startsWith('/terms') ||
+    pathname.startsWith('/privacy')
 
   if (!user && !isAuthPage && !isPublicPage) {
     return NextResponse.redirect(new URL('/login', request.url))

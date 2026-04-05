@@ -31,8 +31,16 @@ export default function LandingPage() {
       </div>
 
       {/* Footer */}
-      <p className="absolute bottom-6 text-slate-600 text-xs">
-        © {new Date().getFullYear()} Scrub Hub
+      <p className="absolute bottom-6 text-slate-600 text-xs flex items-center gap-2">
+        <span>© {new Date().getFullYear()} Scrub Hub</span>
+        <span>·</span>
+        <Link href="/terms" className="hover:text-slate-400 transition-colors">
+          Terms
+        </Link>
+        <span>·</span>
+        <Link href="/privacy" className="hover:text-slate-400 transition-colors">
+          Privacy
+        </Link>
       </p>
     </div>
   )
