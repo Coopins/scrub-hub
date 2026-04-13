@@ -1,7 +1,25 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PUBLIC_PATHS = ['/', '/sms-consent', '/terms', '/privacy']
+const AUTH_PATHS = ['/login', '/signup']
+
+function isPublic(pathname: string) {
+  return PUBLIC_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
+}
+
+function isAuthPage(pathname: string) {
+  return AUTH_PATHS.some(p => pathname === p || pathname.startsWith(p + '/'))
+}
+
 export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Public pages always pass through — never touch Supabase for these
+  if (isPublic(pathname)) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -25,20 +43,11 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
-
-  const isAuthPage   = pathname.startsWith('/login') || pathname.startsWith('/signup')
-  const isPublicPage =
-    pathname === '/' ||
-    pathname.startsWith('/sms-consent') ||
-    pathname.startsWith('/terms') ||
-    pathname.startsWith('/privacy')
-
-  if (!user && !isAuthPage && !isPublicPage) {
+  if (!user && !isAuthPage(pathname)) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (user && isAuthPage) {
+  if (user && isAuthPage(pathname)) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
